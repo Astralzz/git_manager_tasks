@@ -1,0 +1,13 @@
+[
+    {
+      "number": 1,
+      "id": "TKT-XXXX-XXXX",
+      "name": "Descripción del ticket",
+      "task": "TKT-XXXX",
+      "section": "SECCION",
+      "project": "nombre-del-proyecto",
+      "repo_path": "ruta/al/repositorio",
+      "base_branch": "rama-base",
+      "feature_branch": "rama-feature"
+    }
+  ]

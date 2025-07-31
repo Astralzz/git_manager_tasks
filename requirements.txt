@@ -1,0 +1,16 @@
+# Librerías principales del proyecto
+python-dotenv==1.0.0
+
+# Para manejo de archivos JSON (ya incluido en Python, pero por claridad)
+# json - incluido en Python standard library
+
+# Para operaciones del sistema (ya incluido en Python, pero por claridad)
+# os - incluido en Python standard library
+# sys - incluido en Python standard library
+# subprocess - incluido en Python standard library
+
+# Para colores en consola (si usas alguna librería específica)
+colorama==0.4.6
+
+# Para logging (si necesitas logging avanzado)
+# logging - incluido en Python standard library 

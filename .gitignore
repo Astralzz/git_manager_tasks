@@ -1,0 +1,24 @@
+# Carpetas comunes
+**/__pycache__/
+**/*.py[cod]
+*.py[cod]
+*.pyo
+*.pyd
+
+# Logs
+logs/
+**/logs/
+
+# VSCode
+.vscode/
+
+# Archivos de entorno
+.env*
+!.env.example
+
+# Configuración sensible
+config.json
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
