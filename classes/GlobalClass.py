@@ -49,12 +49,12 @@ class GlobalClass:
             self.logger.log_user_input("confirmation", confirm_input)
         
         if confirm_input.lower() != "s":
-            self.colors.error("❌ No se ha confirmado la acción.")
+            self.colors.error("No se ha confirmado la acción.")
             if hasattr(self, 'logger'):
                 self.logger.log_warning("Acción no confirmada", "confirm_action")
             return False
         else:
-            self.colors.success("✅ Se ha confirmado la acción.")
+            self.colors.success("Se ha confirmado la acción.")
             if hasattr(self, 'logger'):
                 self.logger.log_success("Acción confirmada", "confirm_action")
             return True
@@ -72,7 +72,7 @@ class GlobalClass:
         
         # Verifica si la contraseña es correcta
         if pass_input != PASS_SENSITIVE:
-            self.colors.error("❌ La contraseña es incorrecta.")
+            self.colors.error("La contraseña es incorrecta.")
             if hasattr(self, 'logger'):
                 self.logger.log_error("Contraseña incorrecta", "ask_pass")
                 self.logger.log_program_end()
@@ -94,13 +94,13 @@ class GlobalClass:
             value = self.config.get(field)
             # Verifica si el campo esta vacio
             if not value:
-                self.colors.error(f"❌ Falta el campo '{field}' en la configuración.")
+                self.colors.error(f"Falta el campo '{field}' en la configuración.")
                 sys.exit(1)
         # Verifica si la ruta del repositorio existe
         if not os.path.exists(path):
-            self.colors.error(f"❌ La ruta {path} no existe.")
+            self.colors.error(f"La ruta {path} no existe.")
             sys.exit(1)
-        self.colors.success("✅ Todos los campos requeridos son validos.")
+        self.colors.success("Todos los campos requeridos son validos.")
 
     # Funcion abstracta para mostrar el menu de opciones
     def show_menu(self, options: list[dict]) -> None:
@@ -111,7 +111,7 @@ class GlobalClass:
         # Validar que las opciones tengan la estructura correcta
         for option in options:
             if not isinstance(option, dict) or 'function' not in option or 'description' not in option:
-                self.colors.error("❌ Formato de opciones inválido. Cada opción debe tener 'function' y 'description'.")
+                self.colors.error("Formato de opciones inválido. Cada opción debe tener 'function' y 'description'.")
                 return
 
         # Bucle para mostrar el menu de opciones
@@ -148,10 +148,10 @@ class GlobalClass:
                     
                     options[selected_index]['function']()
                 else:
-                    self.colors.error("❌ Opción no válida.")
+                    self.colors.error("Opción no válida.")
                     if hasattr(self, 'logger'):
                         self.logger.log_warning(f"Opción no válida seleccionada: {selected}", "show_menu")
             except ValueError:
-                self.colors.error("❌ Por favor, ingresa un número válido.")
+                self.colors.error("Por favor, ingresa un número válido.")
                 if hasattr(self, 'logger'):
                     self.logger.log_error(f"Entrada no válida en menú: {selected}", "show_menu")
