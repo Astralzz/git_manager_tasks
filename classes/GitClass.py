@@ -1,39 +1,44 @@
-import os
 import subprocess
 import sys
 import datetime
 from colorama import Fore
-from typing import Dict, Optional, List
+from typing import Optional, List
 
 from classes.GlobalClass import GlobalClass
 from classes.GitLogClass import GitLogClass
+from byTypes.configTypes import ExtendedConfigType, GitCommandResult, MenuOptionType
 
 
 class GitClass(GlobalClass):
     """Clase para manejar operaciones Git de forma interactiva y segura"""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: "ExtendedConfigType"):
         """
         Inicializa la clase GitClass con la configuración proporcionada
 
         Args:
-            config: Diccionario con la configuración del repositorio
+            config: Configuración del repositorio con tipado ExtendedConfigType
         """
-        self.config = config
-        self.repo_path = config.get("repo_path")
 
-        # Inicializa la clase padre
-        super().__init__()
+        # Inicializa la clase padre primero
+        super().__init__(selected_config=config)
 
-        # Inicializa el sistema de logs
-        self.logger = GitLogClass(self.repo_path)
+        # Configuración específica de Git
+        self.git_config: ExtendedConfigType = config
+        self.repo_path: Optional[str] = config.get("repo_path")
+
+        # Inicializa el sistema de logs específico de Git
+        if self.repo_path:
+            self.git_logger: GitLogClass = GitLogClass(self.repo_path)
+        else:
+            raise ValueError("repo_path es requerido para GitClass")
 
         # Valida los campos requeridos
         self.validate_required_fields(["base_branch", "feature_branch"], self.repo_path)
 
         # Obtiene las ramas del repositorio
-        self.base_branch = config.get("base_branch")
-        self.feature_branch = config.get("feature_branch")
+        self.base_branch: Optional[str] = config.get("base_branch")
+        self.feature_branch: Optional[str] = config.get("feature_branch")
 
         # Validaciones de seguridad
         self._validate_branch_configuration()
@@ -42,35 +47,84 @@ class GitClass(GlobalClass):
         self._auto_checkout_to_feature_branch()
 
         # Registra el inicio del programa
-        self.logger.log_program_start(self.config)
+        if hasattr(self, "git_logger"):
+            self.git_logger.log_program_start(self.git_config)
+
+    def _get_base_branch(self) -> str:
+        """Retorna la rama base, lanzando error si no está configurada"""
+        if not self.base_branch:
+            raise ValueError("Base branch not configured")
+        return self.base_branch
+
+    def _get_feature_branch(self) -> str:
+        """Retorna la rama feature, lanzando error si no está configurada"""
+        if not self.feature_branch:
+            raise ValueError("Feature branch not configured")
+        return self.feature_branch
 
     def _validate_branch_configuration(self) -> None:
         """Valida que la configuración de ramas sea correcta"""
+        # Verificar que las ramas existan
+        if not self.feature_branch:
+            self.colors.error("La rama feature no está configurada.")
+            sys.exit(1)
+
+        if not self.base_branch:
+            self.colors.error("La rama base no está configurada.")
+            sys.exit(1)
+
         # La rama feature nunca debe ser main o master
         if self.feature_branch.lower() in ["main", "master"]:
-            self.colors.error(
-                f"La rama feature no puede ser '{self.feature_branch}'."
-            )
-            self.logger.log_error(
-                f"Configuración inválida: feature_branch = {self.feature_branch}",
-                "_validate_branch_configuration",
-            )
+            self.colors.error(f"La rama feature no puede ser '{self.feature_branch}'.")
+            if hasattr(self, "logger"):
+                self.git_logger.log_error(
+                    f"Configuración inválida: feature_branch = {self.feature_branch}",
+                    "_validate_branch_configuration",
+                )
             sys.exit(1)
 
         # Las ramas no pueden ser iguales
         if self.base_branch == self.feature_branch:
-            self.colors.error(
-                "La rama base y la rama feature no pueden ser iguales."
-            )
-            self.logger.log_error(
-                "Configuración inválida: base_branch == feature_branch",
-                "_validate_branch_configuration",
-            )
+            self.colors.error("La rama base y la rama feature no pueden ser iguales.")
+            if hasattr(self, "logger"):
+                self.git_logger.log_error(
+                    "Configuración inválida: base_branch == feature_branch",
+                    "_validate_branch_configuration",
+                )
+            sys.exit(1)
+        """Valida que la configuración de ramas sea correcta"""
+        # Verificar que las ramas existan
+        if not self.feature_branch:
+            self.colors.error("La rama feature no está configurada.")
+            sys.exit(1)
+
+        if not self.base_branch:
+            self.colors.error("La rama base no está configurada.")
+            sys.exit(1)
+
+        # La rama feature nunca debe ser main o master
+        if self.feature_branch.lower() in ["main", "master"]:
+            self.colors.error(f"La rama feature no puede ser '{self.feature_branch}'.")
+            if hasattr(self, "logger"):
+                self.git_logger.log_error(
+                    f"Configuración inválida: feature_branch = {self.feature_branch}",
+                    "_validate_branch_configuration",
+                )
+            sys.exit(1)
+
+        # Las ramas no pueden ser iguales
+        if self.base_branch == self.feature_branch:
+            self.colors.error("La rama base y la rama feature no pueden ser iguales.")
+            if hasattr(self, "logger"):
+                self.git_logger.log_error(
+                    "Configuración inválida: base_branch == feature_branch",
+                    "_validate_branch_configuration",
+                )
             sys.exit(1)
 
     def run_git_command(
         self, command: str, allow_failure: bool = False
-    ) -> Dict[str, any]:
+    ) -> "GitCommandResult":
         """
         Ejecuta un comando git y retorna la salida
 
@@ -79,7 +133,7 @@ class GitClass(GlobalClass):
             allow_failure: Si True, no termina el programa en caso de error
 
         Returns:
-            Diccionario con returncode, stdout y stderr
+            GitCommandResult con returncode, stdout y stderr
         """
         try:
             # Muestra el comando a ejecutar
@@ -105,18 +159,18 @@ class GitClass(GlobalClass):
                         self.colors.error(f"Error: {result.stderr.strip()}")
 
             # Prepara el resultado
-            result_dict = {
+            result_dict: "GitCommandResult" = {
                 "returncode": result.returncode,
                 "stdout": result.stdout.strip() if result.stdout else "",
                 "stderr": result.stderr.strip() if result.stderr else "",
             }
 
             # Registra el comando en el log
-            self.logger.log_git_command(command, result_dict)
+            self.git_logger.log_git_command(command, result_dict)
 
             # Si hubo error y no se permite fallo, termina el programa
             if result.returncode != 0 and not allow_failure:
-                self.logger.log_error(
+                self.git_logger.log_error(
                     f"Error al ejecutar comando: {result.stderr}", "run_git_command"
                 )
                 sys.exit(1)
@@ -127,14 +181,14 @@ class GitClass(GlobalClass):
             # Maneja excepciones inesperadas
             self.colors.error(f"Error inesperado: {str(e)}")
 
-            error_result = {
+            error_result: "GitCommandResult" = {
                 "returncode": -1,
                 "stdout": "",
                 "stderr": str(e),
             }
 
-            self.logger.log_git_command(command, error_result)
-            self.logger.log_error(f"Error inesperado: {str(e)}", "run_git_command")
+            self.git_logger.log_git_command(command, error_result)
+            self.git_logger.log_error(f"Error inesperado: {str(e)}", "run_git_command")
 
             if not allow_failure:
                 sys.exit(1)
@@ -179,7 +233,7 @@ class GitClass(GlobalClass):
                     self.colors.success(
                         f"Posicionado en la rama: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
                     )
-                    self.logger.log_operation(
+                    self.git_logger.log_operation(
                         "AUTO_CHECKOUT",
                         f"Cambio automático a {self.feature_branch}",
                         "SUCCESS",
@@ -220,7 +274,7 @@ class GitClass(GlobalClass):
                 self.colors.success(
                     f"Rama descargada y posicionado en: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
                 )
-                self.logger.log_operation(
+                self.git_logger.log_operation(
                     "AUTO_CHECKOUT_REMOTE",
                     f"Descarga y cambio a {self.feature_branch} desde remoto",
                     "SUCCESS",
@@ -258,7 +312,7 @@ class GitClass(GlobalClass):
             "   Usa la opción 6 del menú para crear la rama cuando estés listo."
         )
         self.colors.info("━" * 60)
-        self.logger.log_operation(
+        self.git_logger.log_operation(
             "NEW_TASK_DETECTED",
             f"Nueva tarea detectada: {self.feature_branch} no existe",
             "INFO",
@@ -266,7 +320,7 @@ class GitClass(GlobalClass):
 
     def display_git_menu(self) -> None:
         """Muestra el menú de opciones de forma persistente"""
-        options = [
+        options: List["MenuOptionType"] = [
             {
                 "function": self.get_repo_status,
                 "description": "📊 Obtener el estado del repositorio",
@@ -361,10 +415,10 @@ class GitClass(GlobalClass):
 
         if stash_result["returncode"] == 0:
             self.colors.success("Cambios locales restaurados.")
-            self.logger.log_stash_operation("pop", "", "SUCCESS")
+            self.git_logger.log_stash_operation("pop", "", "SUCCESS")
         else:
             self.colors.error("Error al aplicar stash. Puede haber conflictos.")
-            self.logger.log_stash_operation("pop", "", "ERROR")
+            self.git_logger.log_stash_operation("pop", "", "ERROR")
 
     def save_changes_locally(self) -> None:
         """Guarda los cambios locales usando stash"""
@@ -385,12 +439,12 @@ class GitClass(GlobalClass):
                 f"Auto-stash {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
-        self.logger.log_user_input("stash_message", stash_message)
+        self.git_logger.log_user_input("stash_message", stash_message)
 
         # Guardar cambios
         self.run_git_command(f'git stash push -m "{stash_message}"')
         self.colors.success("📦 Cambios guardados localmente con stash.")
-        self.logger.log_stash_operation("save", stash_message, "SUCCESS")
+        self.git_logger.log_stash_operation("save", stash_message, "SUCCESS")
 
     def get_latest_changes(self) -> None:
         """Hace rebase de la rama base a la rama feature"""
@@ -441,8 +495,8 @@ class GitClass(GlobalClass):
             self.colors.success(
                 f"REBASE EXITOSO: Cambios de {Fore.BLUE}{self.base_branch}{Fore.RESET} integrados"
             )
-            self.logger.log_rebase_operation(
-                self.base_branch, self.feature_branch, "SUCCESS"
+            self.git_logger.log_rebase_operation(
+                self._get_base_branch(), self._get_feature_branch(), "SUCCESS"
             )
         else:
             if "CONFLICT" in rebase_result.get("stdout", "") + rebase_result.get(
@@ -458,8 +512,8 @@ class GitClass(GlobalClass):
                     f"Error durante el rebase: {rebase_result.get('stderr', '')}"
                 )
 
-            self.logger.log_rebase_operation(
-                self.base_branch, self.feature_branch, "ERROR"
+            self.git_logger.log_rebase_operation(
+                self._get_base_branch(), self._get_feature_branch(), "ERROR"
             )
 
     def create_branch_feature(self) -> None:
@@ -497,12 +551,16 @@ class GitClass(GlobalClass):
 
         if create_result["returncode"] == 0:
             self.colors.success(f"Rama '{self.feature_branch}' creada exitosamente.")
-            self.logger.log_branch_operation("create", self.feature_branch, "SUCCESS")
+            self.git_logger.log_branch_operation(
+                "create", self._get_feature_branch(), "SUCCESS"
+            )
         else:
             self.colors.error(
                 f"Error al crear la rama: {create_result.get('stderr', '')}"
             )
-            self.logger.log_branch_operation("create", self.feature_branch, "ERROR")
+            self.git_logger.log_branch_operation(
+                "create", self._get_feature_branch(), "ERROR"
+            )
 
     def delete_branch(self) -> None:
         """Elimina una rama específica con menú interactivo"""
@@ -515,22 +573,22 @@ class GitClass(GlobalClass):
             return
 
         # Procesar ramas
-        all_branches = []
-        current_branch = ""
-        
-        for line in branches_result["stdout"].split('\n'):
+        all_branches: List[str] = []
+        current_branch: str = ""
+
+        for line in branches_result["stdout"].split("\n"):
             line = line.strip()
             if line:
-                if line.startswith('* '):
+                if line.startswith("* "):
                     current_branch = line[2:].strip()
                     all_branches.append(current_branch)
                 else:
                     all_branches.append(line.strip())
 
         # Filtrar ramas que se pueden eliminar (excluir actual y protegidas)
-        deletable_branches = []
+        deletable_branches: List[str] = []
         protected_branches = ["main", "master", "develop", "development"]
-        
+
         for branch in all_branches:
             if branch != current_branch and branch.lower() not in protected_branches:
                 deletable_branches.append(branch)
@@ -550,8 +608,10 @@ class GitClass(GlobalClass):
         # Mostrar opciones numeradas
         for i, branch in enumerate(deletable_branches, 1):
             self.colors.info(f"  {i}. {Fore.YELLOW}{branch}{Fore.RESET}")
-        
-        self.colors.info(f"  {len(deletable_branches) + 1}. 📝 Escribir otra rama manualmente")
+
+        self.colors.info(
+            f"  {len(deletable_branches) + 1}. 📝 Escribir otra rama manualmente"
+        )
         self.colors.info(f"  {len(deletable_branches) + 2}. Salir")
         self.colors.info("━" * 50)
 
@@ -563,23 +623,23 @@ class GitClass(GlobalClass):
                 return
 
             choice_num = int(choice)
-            
+
             # Opción: Salir
             if choice_num == len(deletable_branches) + 2:
                 self.colors.info("Operación cancelada.")
                 return
-            
+
             # Opción: Escribir manualmente
             elif choice_num == len(deletable_branches) + 1:
                 branch_name = input("📝 Nombre de la rama a eliminar: ").strip()
                 if not branch_name:
                     self.colors.warning("⚠ No se especificó ninguna rama.")
                     return
-            
+
             # Opción: Rama de la lista
             elif 1 <= choice_num <= len(deletable_branches):
                 branch_name = deletable_branches[choice_num - 1]
-            
+
             else:
                 self.colors.error("Opción inválida.")
                 return
@@ -589,7 +649,7 @@ class GitClass(GlobalClass):
             return
 
         # Registrar selección del usuario
-        self.logger.log_user_input("branch_to_delete", branch_name)
+        self.git_logger.log_user_input("branch_to_delete", branch_name)
 
         # Verificaciones adicionales para ramas escritas manualmente
         if branch_name == current_branch:
@@ -604,7 +664,9 @@ class GitClass(GlobalClass):
                 return
 
         # Confirmar eliminación
-        self.colors.warning(f"⚠️ Vas a eliminar la rama: {Fore.YELLOW}{branch_name}{Fore.RESET}")
+        self.colors.warning(
+            f"⚠️ Vas a eliminar la rama: {Fore.YELLOW}{branch_name}{Fore.RESET}"
+        )
         if not self.confirm_action("¿Continuar con la eliminación?"):
             self.colors.info("Eliminación cancelada.")
             return
@@ -616,13 +678,15 @@ class GitClass(GlobalClass):
 
         if delete_result["returncode"] == 0:
             self.colors.success(f"Rama '{branch_name}' eliminada localmente.")
-            self.colors.info("ℹ️ Solo se eliminó la rama local, el remoto no fue afectado.")
-            self.logger.log_branch_operation("delete", branch_name, "SUCCESS")
+            self.colors.info(
+                "ℹ️ Solo se eliminó la rama local, el remoto no fue afectado."
+            )
+            self.git_logger.log_branch_operation("delete", branch_name, "SUCCESS")
         else:
             self.colors.error(
                 f"Error al eliminar la rama: {delete_result.get('stderr', '')}"
             )
-            self.logger.log_branch_operation("delete", branch_name, "ERROR")
+            self.git_logger.log_branch_operation("delete", branch_name, "ERROR")
 
     def upload_changes(self) -> None:
         """Sube los cambios al repositorio remoto"""
@@ -667,7 +731,7 @@ class GitClass(GlobalClass):
 
         except Exception as e:
             self.colors.error(f"Error al subir cambios: {str(e)}")
-            self.logger.log_error(str(e), "upload_changes")
+            self.git_logger.log_error(str(e), "upload_changes")
 
     def _count_pending_commits(self, branch: str, has_upstream: bool) -> int:
         """Cuenta los commits pendientes de push"""
@@ -693,12 +757,12 @@ class GitClass(GlobalClass):
         commit_message = input("📝 Mensaje del commit: ").strip()
         if not commit_message:
             self.colors.warning("⚠ No se escribió mensaje de commit.")
-            self.logger.log_warning(
+            self.git_logger.log_warning(
                 "No se escribió mensaje de commit", "upload_changes"
             )
             return False
 
-        self.logger.log_user_input("commit_message", commit_message)
+        self.git_logger.log_user_input("commit_message", commit_message)
 
         self.run_git_command("git add .")
         self.run_git_command(f'git commit -m "{commit_message}"')
@@ -794,7 +858,7 @@ class GitClass(GlobalClass):
                         "stderr", ""
                     ):
                         self.colors.error("Hay conflictos. Resuélvelos manualmente.")
-                        self.logger.log_error(
+                        self.git_logger.log_error(
                             "Conflictos durante pull", "upload_changes"
                         )
                         return False
@@ -811,24 +875,24 @@ class GitClass(GlobalClass):
             last_commit["stdout"].strip() if last_commit["stdout"] else "Unknown"
         )
 
-        self.logger.log_push_operation(branch, commit_msg, "SUCCESS")
+        self.git_logger.log_push_operation(branch, commit_msg, "SUCCESS")
 
         self.colors.info(f"📊 Rama: {branch}")
         self.colors.info(f"📝 Último commit: {commit_msg}")
 
-    def _handle_push_error(self, branch: str, result: dict) -> None:
+    def _handle_push_error(self, branch: str, result: GitCommandResult) -> None:
         """Maneja errores de push"""
         error_msg = result.get("stderr", "")
 
         if "rejected" in error_msg:
             self.colors.error("Push rechazado. Necesitas hacer pull primero.")
             self.colors.info(f"💡 Intenta: git pull --rebase origin {branch}")
-            self.logger.log_push_operation(branch, "Push rejected", "REJECTED")
+            self.git_logger.log_push_operation(branch, "Push rejected", "WARNING")
         elif "Everything up-to-date" in result.get("stdout", ""):
             self.colors.info("ℹ️ Todo está actualizado.")
         else:
             self.colors.error(f"Error al hacer push: {error_msg}")
-            self.logger.log_error(error_msg, "upload_changes")
+            self.git_logger.log_error(error_msg, "upload_changes")
 
     def cancel_rebase(self) -> None:
         """Cancela un rebase en progreso"""
@@ -838,7 +902,9 @@ class GitClass(GlobalClass):
 
         if abort_result["returncode"] == 0:
             self.colors.success("Rebase cancelado exitosamente.")
-            self.logger.log_operation("REBASE_CANCEL", "Rebase cancelado", "SUCCESS")
+            self.git_logger.log_operation(
+                "REBASE_CANCEL", "Rebase cancelado", "SUCCESS"
+            )
         else:
             self.colors.warning("⚠️ No hay rebase en progreso para cancelar.")
 
@@ -890,7 +956,7 @@ class GitClass(GlobalClass):
 
         except Exception as e:
             self.colors.error(f"Error al hacer pull: {str(e)}")
-            self.logger.log_error(str(e), "pull_current_branch")
+            self.git_logger.log_error(str(e), "pull_current_branch")
 
     def _do_pull(self, branch: str) -> None:
         """Ejecuta el pull con rebase"""
@@ -902,7 +968,7 @@ class GitClass(GlobalClass):
             self.colors.success(
                 f"PULL EXITOSO: Cambios descargados en {Fore.YELLOW}{branch}{Fore.RESET}"
             )
-            self.logger.log_pull_operation(branch, "SUCCESS")
+            self.git_logger.log_pull_operation(branch, "SUCCESS")
         else:
             if "CONFLICT" in pull_result.get("stdout", "") + pull_result.get(
                 "stderr", ""
@@ -915,13 +981,13 @@ class GitClass(GlobalClass):
                 self.colors.error(
                     f"Error durante el pull: {pull_result.get('stderr', '')}"
                 )
-            self.logger.log_pull_operation(branch, "ERROR")
+            self.git_logger.log_pull_operation(branch, "ERROR")
 
     def view_today_logs(self) -> None:
         """Muestra los logs del día actual"""
         try:
-            log_content = self.logger.read_today_log()
-            log_path = self.logger.get_today_log_path()
+            log_content = self.git_logger.read_today_log()
+            log_path = self.git_logger.get_today_log_path()
 
             self.colors.info(f"📋 LOGS DE HOY: {log_path}")
             self.colors.info("=" * 80)
@@ -943,11 +1009,11 @@ class GitClass(GlobalClass):
                             self.colors.info(line)
 
             self.colors.info("=" * 80)
-            self.logger.log_operation("VIEW_LOGS", "Logs consultados", "INFO")
+            self.git_logger.log_operation("VIEW_LOGS", "Logs consultados", "INFO")
 
         except Exception as e:
             self.colors.error(f"Error al leer logs: {str(e)}")
-            self.logger.log_error(str(e), "view_today_logs")
+            self.git_logger.log_error(str(e), "view_today_logs")
 
     def reset_to_base_with_backup(self) -> None:
         """Hace reset completo a la rama base con backup opcional"""
@@ -1003,7 +1069,7 @@ class GitClass(GlobalClass):
                 )
                 self.colors.info(f"💡 Para recuperar: git checkout {backup_branch}")
 
-            self.logger.log_operation(
+            self.git_logger.log_operation(
                 "RESET_TO_BASE",
                 f"Reset a {self.base_branch}, backup: {backup_branch}",
                 "SUCCESS",
@@ -1015,7 +1081,7 @@ class GitClass(GlobalClass):
 
         except Exception as e:
             self.colors.error(f"Error durante reset: {str(e)}")
-            self.logger.log_error(str(e), "reset_to_base_with_backup")
+            self.git_logger.log_error(str(e), "reset_to_base_with_backup")
 
     def _create_backup_branch(self, has_changes: bool) -> str:
         """Crea una rama de backup con los cambios actuales"""
