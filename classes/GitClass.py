@@ -208,44 +208,61 @@ class GitClass(GlobalClass):
             )
             current_branch = result["stdout"].strip()
 
+            # Limpiar el nombre de la rama objetivo
+            target_branch = self.feature_branch.strip() if self.feature_branch else ""
+
             # Si ya estamos en la rama feature, no hacer nada
-            if current_branch == self.feature_branch:
+            if current_branch == target_branch:
                 self.colors.success(
-                    f"Ya estás en la rama feature: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
+                    f"Ya estás en la rama feature: {Fore.YELLOW}{target_branch}{Fore.RESET}"
                 )
                 return
 
-            # Verificar si la rama feature existe localmente
+            # Verificar si la rama feature existe localmente con git branch
             check_local = self.run_git_command(
-                f"git rev-parse --verify --quiet {self.feature_branch}",
+                f"git show-ref --verify --quiet refs/heads/{target_branch}",
                 allow_failure=True,
             )
 
             if check_local["returncode"] == 0:
                 # La rama existe localmente, hacer checkout
                 self.colors.info(
-                    f"🔄 Cambiando a la rama feature: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
+                    f"🔄 Cambiando a la rama feature: {Fore.YELLOW}{target_branch}{Fore.RESET}"
                 )
                 checkout_result = self.run_git_command(
-                    f"git checkout {self.feature_branch}", allow_failure=True
+                    f"git checkout {target_branch}", allow_failure=True
                 )
 
                 if checkout_result["returncode"] == 0:
                     self.colors.success(
-                        f"Posicionado en la rama: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
+                        f"Posicionado en la rama: {Fore.YELLOW}{target_branch}{Fore.RESET}"
                     )
                     self.git_logger.log_operation(
                         "AUTO_CHECKOUT",
-                        f"Cambio automático a {self.feature_branch}",
+                        f"Cambio automático a {target_branch}",
                         "SUCCESS",
                     )
                 else:
-                    self.colors.warning(
-                        f"⚠️ No se pudo cambiar a la rama {self.feature_branch}"
-                    )
-                    self.colors.info(
-                        f"📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}"
-                    )
+                    # Verificar si hay cambios no commiteados que impiden el checkout
+                    status_check = self.run_git_command("git status --porcelain", allow_failure=True)
+                    if status_check["stdout"].strip():
+                        self._handle_checkout_with_changes(current_branch, target_branch, checkout_result)
+                    else:
+                        # Otro tipo de error
+                        self.colors.warning(
+                            f"⚠️ No se pudo cambiar a la rama {target_branch}"
+                        )
+                        self.colors.error(f"Error específico: {checkout_result.get('stderr', 'Sin error específico')}")
+                        self.colors.info(
+                            f"📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}"
+                        )
+                        
+                        # Log del error
+                        self.git_logger.log_operation(
+                            "AUTO_CHECKOUT",
+                            f"Error al cambiar a {target_branch}: {checkout_result.get('stderr', '')}",
+                            "ERROR",
+                        )
             else:
                 # Verificar en remoto
                 self._check_remote_branch(current_branch)
@@ -253,6 +270,94 @@ class GitClass(GlobalClass):
         except Exception as e:
             self.colors.warning(f"⚠️ Error al verificar rama: {str(e)}")
             self.colors.info("💡 El programa continuará normalmente.")
+
+    def _handle_checkout_with_changes(self, current_branch: str, target_branch: str, checkout_result: "GitCommandResult") -> None:
+        """Maneja el checkout cuando hay cambios locales pendientes"""
+        self.colors.warning("⚠️ Tienes cambios sin commitear que impiden el checkout:")
+        self.run_git_command("git status --short")
+        
+        self.colors.info("\n💡 Opciones disponibles:")
+        self.colors.info("  1. 📦 Guardar cambios temporalmente (stash) y cambiar de rama")
+        self.colors.info("  2. 📍 Permanecer en la rama actual y continuar")
+        self.colors.info("  3. 📝 Ver detalles de los cambios antes de decidir")
+        
+        while True:
+            try:
+                choice = input("\n🔍 Selecciona una opción (1-3): ").strip()
+                
+                if choice == "1":
+                    # Guardar cambios y cambiar de rama
+                    if self._stash_and_checkout(current_branch, target_branch):
+                        return
+                    else:
+                        break
+                        
+                elif choice == "2":
+                    # Permanecer en rama actual
+                    self.colors.info(f"📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}")
+                    self.git_logger.log_operation(
+                        "AUTO_CHECKOUT",
+                        f"Usuario decidió permanecer en {current_branch}",
+                        "INFO",
+                    )
+                    return
+                    
+                elif choice == "3":
+                    # Mostrar detalles de cambios
+                    self.colors.info("📋 Detalles de los cambios:")
+                    self.run_git_command("git diff --name-status")
+                    self.colors.info("\n📝 Vista previa de cambios:")
+                    self.run_git_command("git diff --stat")
+                    continue
+                    
+                else:
+                    self.colors.warning("⚠️ Opción inválida. Selecciona 1, 2 o 3.")
+                    continue
+                    
+            except KeyboardInterrupt:
+                self.colors.info(f"\n📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}")
+                return
+        
+        # Si llegamos aquí, algo falló
+        self.colors.info(f"📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}")
+
+    def _stash_and_checkout(self, current_branch: str, target_branch: str) -> bool:
+        """Guarda cambios con stash y hace checkout usando las funciones existentes"""
+        try:
+            # Usar la función existente save_changes_locally
+            self.colors.info("📦 Guardando cambios temporalmente...")
+            
+            # Llamar a la función existente que ya maneja todo el stash
+            self.save_changes_locally()
+            
+            # Intentar checkout nuevamente
+            self.colors.info(f"🔄 Cambiando a {Fore.YELLOW}{target_branch}{Fore.RESET}...")
+            checkout_result = self.run_git_command(
+                f"git checkout {target_branch}", 
+                allow_failure=True
+            )
+            
+            if checkout_result["returncode"] == 0:
+                self.colors.success(f"✅ Posicionado en: {Fore.YELLOW}{target_branch}{Fore.RESET}")
+                self.colors.info(f"📦 Tus cambios están guardados en stash. Usa la opción del menú para restaurarlos.")
+                
+                self.git_logger.log_operation(
+                    "AUTO_CHECKOUT_WITH_STASH",
+                    f"Checkout exitoso a {target_branch} con stash",
+                    "SUCCESS",
+                )
+                return True
+            else:
+                self.colors.error("❌ Error al cambiar de rama incluso después del stash")
+                self.colors.info("🔄 Restaurando cambios...")
+                
+                # Usar la función existente para restaurar
+                self.restore_local_changes()
+                return False
+                
+        except Exception as e:
+            self.colors.error(f"❌ Error inesperado durante stash y checkout: {str(e)}")
+            return False
 
     def _check_remote_branch(self, current_branch: str) -> None:
         """Verifica si la rama existe en remoto y la descarga si es posible"""
@@ -365,6 +470,10 @@ class GitClass(GlobalClass):
             {
                 "function": self.feature_branch_workflow,
                 "description": "🌟 Flujo completo de feature branch (GitFlow CONACYT), ESPECIFICO",
+            },
+            {
+                "function": self.restore_local_changes,
+                "description": "📦 Restaurar cambios guardados (stash)",
             },
             {"function": self.view_today_logs, "description": "📋 Ver logs de hoy"},
         ]
