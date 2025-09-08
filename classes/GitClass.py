@@ -7,6 +7,7 @@ from typing import Optional, List
 from classes.GlobalClass import GlobalClass
 from classes.GitLogClass import GitLogClass
 from byTypes.configTypes import ExtendedConfigType, GitCommandResult, MenuOptionType
+from consts.env import GIT_CONFIG_ID
 
 
 class GitClass(GlobalClass):
@@ -350,12 +351,20 @@ class GitClass(GlobalClass):
                 "description": f"🔄 RESET COMPLETO: Empezar desde {Fore.BLUE}{self.base_branch}{Fore.RESET} (con backup)",
             },
             {
+                "function": self.update_base_branch,
+                "description": f"🔄 ACTUALIZAR RAMA BASE: Traer últimos cambios de {Fore.BLUE}{self.base_branch}{Fore.RESET}",
+            },
+            {
                 "function": self.delete_branch,
                 "description": "🗑️ Eliminar una rama por nombre",
             },
             {
                 "function": self.cancel_rebase,
-                "description": "Cancelar rebase en progreso",
+                "description": "🟥 Cancelar rebase en progreso",
+            },
+            {
+                "function": self.feature_branch_workflow,
+                "description": "🌟 Flujo completo de feature branch (GitFlow CONACYT), ESPECIFICO",
             },
             {"function": self.view_today_logs, "description": "📋 Ver logs de hoy"},
         ]
@@ -983,6 +992,146 @@ class GitClass(GlobalClass):
                 )
             self.git_logger.log_pull_operation(branch, "ERROR")
 
+    def update_base_branch(self) -> None:
+        """Actualiza la rama base con los últimos cambios del remoto"""
+        self.ask_pass()
+
+        try:
+            # Obtener rama actual para regresar después
+            current_result = self.run_git_command("git branch --show-current")
+            current_branch = current_result["stdout"].strip()
+
+            self.colors.info(f"\n🔄 ACTUALIZANDO RAMA BASE:")
+            self.colors.info(f"📁 Repo: {Fore.MAGENTA}{self.repo_path}{Fore.RESET}")
+            self.colors.info(
+                f"🌿 Rama actual: {Fore.YELLOW}{current_branch}{Fore.RESET}"
+            )
+            self.colors.info(
+                f"📥 Actualizando: {Fore.BLUE}{self.base_branch}{Fore.RESET}"
+            )
+
+            # Verificar si hay cambios locales en la rama actual
+            status = self.run_git_command("git status --porcelain", allow_failure=True)
+            has_local_changes = bool(status["stdout"].strip())
+
+            if has_local_changes:
+                self.colors.warning("⚠️ Hay cambios locales sin commitear.")
+                if self.confirm_action("¿Guardar cambios antes de actualizar la base?"):
+                    self.save_changes_locally()
+
+            # Verificar si la rama base existe localmente
+            base_check = self.run_git_command(
+                f"git rev-parse --verify {self.base_branch}", allow_failure=True
+            )
+
+            if base_check["returncode"] != 0:
+                self.colors.warning(
+                    f"⚠️ Descargando rama base '{self.base_branch}' desde remoto..."
+                )
+                self.run_git_command(
+                    f"git fetch origin {self.base_branch}:{self.base_branch}"
+                )
+
+            # Cambiar a la rama base
+            self.colors.info(f"🔄 Cambiando a {self.base_branch}...")
+            checkout_result = self.run_git_command(
+                f"git checkout {self.base_branch}", allow_failure=True
+            )
+
+            if checkout_result["returncode"] != 0:
+                self.colors.error(f"Error al cambiar a la rama {self.base_branch}")
+                return
+
+            # Actualizar referencias remotas
+            self.colors.info("📡 Actualizando referencias remotas...")
+            self.run_git_command("git fetch origin")
+
+            # Hacer pull/reset de la rama base
+            self.colors.info(f"📥 Descargando últimos cambios de {self.base_branch}...")
+
+            # Verificar si hay commits locales en la rama base
+            ahead_result = self.run_git_command(
+                f"git rev-list --count origin/{self.base_branch}..HEAD",
+                allow_failure=True,
+            )
+
+            has_local_commits = False
+            if ahead_result["returncode"] == 0:
+                ahead_count = int(ahead_result["stdout"].strip() or 0)
+                has_local_commits = ahead_count > 0
+
+            if has_local_commits:
+                self.colors.warning(
+                    f"⚠️ La rama {self.base_branch} tiene commits locales."
+                )
+                if self.confirm_action(
+                    f"¿Hacer reset hard a origin/{self.base_branch}? (Se perderán los commits locales)"
+                ):
+                    self.run_git_command(f"git reset --hard origin/{self.base_branch}")
+                    self.colors.success(
+                        f"Rama {self.base_branch} reseteada a la versión remota."
+                    )
+                else:
+                    # Intentar merge
+                    merge_result = self.run_git_command(
+                        f"git merge origin/{self.base_branch}", allow_failure=True
+                    )
+                    if merge_result["returncode"] == 0:
+                        self.colors.success(f"Merge exitoso en {self.base_branch}.")
+                    else:
+                        self.colors.error(
+                            "Error durante el merge. Resuelve conflictos manualmente."
+                        )
+                        return
+            else:
+                # No hay commits locales, hacer reset hard es seguro
+                self.run_git_command(f"git reset --hard origin/{self.base_branch}")
+                self.colors.success(
+                    f"Rama {self.base_branch} actualizada exitosamente."
+                )
+
+            # Mostrar información de la actualización
+            last_commit = self.run_git_command(
+                "git log -1 --oneline", allow_failure=True
+            )
+            if last_commit["stdout"]:
+                self.colors.info(f"📝 Último commit: {last_commit['stdout'].strip()}")
+
+            # Regresar a la rama original
+            if current_branch != self.base_branch:
+                self.colors.info(f"🔄 Regresando a {current_branch}...")
+                return_result = self.run_git_command(
+                    f"git checkout {current_branch}", allow_failure=True
+                )
+
+                if return_result["returncode"] == 0:
+                    self.colors.success(
+                        f"De vuelta en: {Fore.YELLOW}{current_branch}{Fore.RESET}"
+                    )
+
+                    # Restaurar cambios si se guardaron
+                    if has_local_changes:
+                        if self.confirm_action("¿Restaurar los cambios guardados?"):
+                            self.restore_local_changes()
+                else:
+                    self.colors.error(f"Error al regresar a {current_branch}")
+
+            self.git_logger.log_operation(
+                "UPDATE_BASE_BRANCH",
+                f"Rama base {self.base_branch} actualizada",
+                "SUCCESS",
+            )
+
+            # Sugerir rebase si estamos en una rama feature
+            if current_branch == self.feature_branch:
+                self.colors.info(
+                    "💡 Recomendación: Considera hacer REBASE para integrar los nuevos cambios."
+                )
+
+        except Exception as e:
+            self.colors.error(f"Error al actualizar rama base: {str(e)}")
+            self.git_logger.log_error(str(e), "update_base_branch")
+
     def view_today_logs(self) -> None:
         """Muestra los logs del día actual"""
         try:
@@ -1137,3 +1286,242 @@ class GitClass(GlobalClass):
             self.run_git_command(f"git reset --hard {self.base_branch}")
         else:
             self.run_git_command(f"git checkout -b {self.feature_branch}")
+
+    # ---------- Flujos Complejos para tareas especificas ----------
+
+    def feature_branch_workflow(self):
+        """Flujo completo de feature branch según GitFlow CONACYT - Arquitectura GitFlow"""
+        self.ask_pass()
+
+        self.colors.info("\n=== FLUJO DE FEATURE BRANCH - CONACYT ===")
+
+        # Verificar contexto específico
+        if (
+            self.feature_branch != "develop"
+            or self.base_branch != "main"
+            or not self.git_config
+            or self.git_config.get("id") != GIT_CONFIG_ID
+        ):
+            self.colors.error(
+                f"Este flujo solo es muy especifico y solo válido para: "
+                f"'develop' con base 'main' y "
+                f"configuración de ID única ?????."
+            )
+            return
+
+        # Confirmar que el usuario entiende el contexto
+        if not self.confirm_action(
+            "Esto solo es para una tarea especifica, estas seguro?"
+        ):
+            self.colors.info("Operación cancelada.")
+            return
+
+        # Solicitar información al usuario
+        version = input("Ingresa la versión (ej: [N].[N].[N]): ").strip()
+        if not version:
+            self.colors.error("La versión es requerida")
+            return
+
+        message = input("Ingresa el mensaje del commit: ").strip()
+        if not message:
+            self.colors.error("El mensaje del commit es requerido")
+            return
+
+        feature_name = f"feature/version-{version.replace('.', '-')}"
+
+        # Registrar inputs
+        self.git_logger.log_user_input("version", version)
+        self.git_logger.log_user_input("commit_message", message)
+        self.git_logger.log_user_input("feature_name", feature_name)
+
+        self.colors.info(
+            f"\n🚀 Iniciando flujo: {Fore.YELLOW}{feature_name}{Fore.RESET}"
+        )
+
+        try:
+            # PASO 1: Asegurarse de estar en develop y actualizada
+            self.colors.info("\n📍 PASO 1: Actualizando rama develop...")
+
+            # Cambiar a develop
+            checkout_result = self.run_git_command(
+                "git checkout develop", allow_failure=True
+            )
+            if checkout_result["returncode"] != 0:
+                self.colors.error("Error al cambiar a develop")
+                return
+
+            # Pull de develop
+            pull_result = self.run_git_command(
+                "git pull origin develop", allow_failure=True
+            )
+            if pull_result[
+                "returncode"
+            ] != 0 and "Already up to date" not in pull_result.get("stdout", ""):
+                self.colors.error("Error al actualizar develop")
+                return
+
+            # PASO 2: Crear nueva rama feature
+            self.colors.info(
+                f"\n🌿 PASO 2: Creando rama {Fore.YELLOW}{feature_name}{Fore.RESET}..."
+            )
+
+            # Verificar si ya existe
+            exists = self.run_git_command(
+                f"git rev-parse --verify {feature_name}", allow_failure=True
+            )
+            if exists["returncode"] == 0:
+                self.colors.warning(f"⚠️ La rama {feature_name} ya existe")
+                # Cambiar a ella
+                self.run_git_command(f"git checkout {feature_name}")
+            else:
+                # Crear y cambiar a la nueva rama
+                create_result = self.run_git_command(
+                    f"git checkout -b {feature_name}", allow_failure=True
+                )
+                if create_result["returncode"] != 0:
+                    self.colors.error(f"Error al crear la rama {feature_name}")
+                    return
+
+            # PASO 3: Realizar cambios y hacer commit
+            self.colors.info("\n💾 PASO 3: Realizando cambios y commit...")
+
+            # Verificar si hay cambios
+            status = self.run_git_command("git status --porcelain", allow_failure=True)
+            if not status["stdout"].strip():
+                self.colors.warning("⚠️ No hay cambios para commitear")
+                if not self.confirm_action("¿Continuar sin cambios?"):
+                    return
+            else:
+                # Mostrar cambios
+                self.colors.info("📋 Cambios detectados:")
+                self.run_git_command("git status --short")
+
+                # git add .
+                self.colors.info("▶ Ejecutando: git add .")
+                add_result = self.run_git_command("git add .", allow_failure=True)
+                if add_result["returncode"] != 0:
+                    self.colors.error("Error al añadir cambios")
+                    return
+
+                # git commit
+                self.colors.info(f"▶ Ejecutando: git commit -m '{message}'")
+                commit_result = self.run_git_command(
+                    f'git commit -m "{message}"', allow_failure=True
+                )
+                if commit_result["returncode"] != 0:
+                    # Si no hay cambios para commitear, es normal
+                    if "nothing to commit" in commit_result.get("stdout", ""):
+                        self.colors.warning("⚠️ No hay cambios nuevos para commitear")
+                    else:
+                        self.colors.error("Error al hacer commit")
+                        return
+                else:
+                    self.colors.success("✅ Commit realizado exitosamente")
+
+            # PASO 4: Volver a develop y actualizar
+            self.colors.info("\n🔄 PASO 4: Volviendo a develop y actualizando...")
+
+            # Cambiar a develop
+            checkout_dev = self.run_git_command(
+                "git checkout develop", allow_failure=True
+            )
+            if checkout_dev["returncode"] != 0:
+                self.colors.error("Error al cambiar a develop")
+                return
+
+            # Pull de develop nuevamente
+            pull_dev = self.run_git_command(
+                "git pull origin develop", allow_failure=True
+            )
+            if pull_dev["returncode"] != 0 and "Already up to date" not in pull_dev.get(
+                "stdout", ""
+            ):
+                self.colors.warning("⚠️ Advertencia al actualizar develop")
+
+            # Hacer merge de la feature branch
+            self.colors.info(
+                f"🔀 Haciendo merge de {Fore.YELLOW}{feature_name}{Fore.RESET}..."
+            )
+            merge_result = self.run_git_command(
+                f"git merge {feature_name}", allow_failure=True
+            )
+
+            if merge_result["returncode"] != 0:
+                if "Already up to date" in merge_result.get("stdout", ""):
+                    self.colors.info("ℹ️ Ya está actualizado")
+                else:
+                    self.colors.error(f"Error al hacer merge de {feature_name}")
+                    return
+            else:
+                self.colors.success("✅ Merge completado")
+
+            # PASO 5: Subir cambios a develop
+            self.colors.info("\n⬆️ PASO 5: Subiendo cambios a develop...")
+            push_result = self.run_git_command(
+                "git push origin develop", allow_failure=True
+            )
+
+            if push_result["returncode"] != 0:
+                if "Everything up-to-date" in push_result.get("stdout", ""):
+                    self.colors.info("ℹ️ Todo está actualizado")
+                else:
+                    self.colors.error("Error al subir cambios a develop")
+                    self.colors.info("💡 Intenta: git push origin develop")
+                    return
+            else:
+                self.colors.success("✅ Cambios subidos exitosamente a develop")
+
+            # PASO 6: Eliminar rama feature (opcional)
+            self.colors.info("\n🧹 PASO 6: Limpieza opcional...")
+            cleanup = input("¿Eliminar la rama feature local? (s/N): ").strip().lower()
+
+            if cleanup in ["s", "si", "sí", "y", "yes"]:
+                # Eliminar rama local
+                delete_local = self.run_git_command(
+                    f"git branch -d {feature_name}", allow_failure=True
+                )
+                if delete_local["returncode"] == 0:
+                    self.colors.success(f"✅ Rama local {feature_name} eliminada")
+                else:
+                    # Intentar con -D si falló
+                    self.run_git_command(
+                        f"git branch -D {feature_name}", allow_failure=True
+                    )
+
+                # Preguntar por rama remota
+                remote_delete = (
+                    input("¿Eliminar también del remoto? (s/N): ").strip().lower()
+                )
+                if remote_delete in ["s", "si", "sí", "y", "yes"]:
+                    delete_remote = self.run_git_command(
+                        f"git push origin --delete {feature_name}", allow_failure=True
+                    )
+                    if delete_remote["returncode"] == 0:
+                        self.colors.success(f"✅ Rama remota {feature_name} eliminada")
+
+            # RESUMEN FINAL
+            self.colors.success("\n" + "=" * 60)
+            self.colors.success("✅ FLUJO GITFLOW COMPLETADO EXITOSAMENTE")
+            self.colors.success("=" * 60)
+            self.colors.info(f"📋 Resumen de operaciones:")
+            self.colors.info(
+                f"   ✓ Rama feature: {Fore.YELLOW}{feature_name}{Fore.RESET}"
+            )
+            self.colors.info(f"   ✓ Mensaje commit: {Fore.CYAN}{message}{Fore.RESET}")
+            self.colors.info(f"   ✓ Integrado en: {Fore.BLUE}develop{Fore.RESET}")
+            self.colors.info(f"   ✓ Subido a: {Fore.GREEN}origin/develop{Fore.RESET}")
+
+            # Mostrar estado final
+            self.colors.info("\n📊 Estado final:")
+            self.run_git_command("git status")
+
+            # Log de éxito
+            self.git_logger.log_operation(
+                "FEATURE_BRANCH_WORKFLOW",
+                f"GitFlow completado: {feature_name} → develop",
+                "SUCCESS",
+            )
+
+        except Exception as e:
+            self.colors.error(f"Error en el flujo: {str(e)}")
+            self.git_logger.log_error(str(e), "feature_branch_workflow")

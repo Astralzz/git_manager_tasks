@@ -130,7 +130,7 @@ class GlobalClass:
             self.colors.info("🔄 MENU DE OPCIONES PARA GIT:")
             for index, option in enumerate(options, start=1):
                 self.colors.info(f"[{index}] {option.get('description')}")
-            self.colors.info(f"[{len(options) + 1}] Salir")
+            self.colors.info(f"[{len(options) + 1}] ❌ Salir")
             self.colors.info("--------------------------------\n")
 
             # Pedir la opción seleccionada
