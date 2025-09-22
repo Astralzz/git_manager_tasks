@@ -484,25 +484,35 @@ class GitClass(GlobalClass):
         self.colors.info(
             f"🔄 REBASE: Integrando cambios de {Fore.BLUE}{self.base_branch}{Fore.RESET} → {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
         )
-
+        
         # Verificar cambios locales
         status = self.run_git_command("git status --porcelain", allow_failure=True)
         has_local_changes = bool(status["stdout"].strip())
-
+        
+        stashed = False
         if has_local_changes:
-            if self.confirm_action(
-                "¿Quieres guardar tus cambios locales antes del rebase?"
-            ):
+            if self.confirm_action("¿Quieres guardar tus cambios locales antes del rebase?"):
                 self.save_changes_locally()
-                self.get_latest_changes()
+                stashed = True
+        
+        try:
+            # IMPORTANTE: Actualizar main desde el remoto
+            self.colors.info(f"📥 Actualizando {self.base_branch} desde remoto...")
+            self.run_git_command(f"git fetch origin {self.base_branch}:{self.base_branch}")
+            
+            # Ahora sí hacer el rebase con main actualizado
+            self.colors.info(f"🔄 Aplicando rebase...")
+            self.run_git_command(f"git rebase {self.base_branch}")
+            
+            self.colors.success("✅ REBASE EXITOSO: Cambios integrados")
+            
+        except Exception as e:
+            self.colors.error(f"Error en rebase: {str(e)}")
+            # Manejar conflictos o errores
+            
+        finally:
+            if stashed:
                 self.restore_local_changes()
-            else:
-                self.get_latest_changes()
-        else:
-            self.colors.info(
-                "No hay cambios locales pendientes. Procediendo con el rebase..."
-            )
-            self.get_latest_changes()
 
     def get_repo_status(self) -> None:
         """Obtiene el estado del repositorio"""
