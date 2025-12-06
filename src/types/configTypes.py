@@ -1,6 +1,6 @@
 # Tipos
 
-from typing import TypedDict, Optional, Callable, Protocol, Literal
+from typing import TypedDict, Optional, Callable, Protocol, Literal, List, Dict
 
 
 # Protocolo para el logger
@@ -46,6 +46,13 @@ class ExtendedConfigType(ConfigWithPathType, total=False):
     project: Optional[str]
     section: Optional[str]
     task: Optional[str]
+    date: Optional[str]
+
+
+# Tipo para secciones de configuración
+class ConfigSection(TypedDict):
+    description: str
+    configs: List[Dict]
 
 
 # Tipo para configuraciones opcionales durante la carga

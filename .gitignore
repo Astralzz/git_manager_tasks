@@ -9,6 +9,9 @@
 logs/
 **/logs/
 
+# backup
+backups/
+
 # VSCode
 .vscode/
 

@@ -1,14 +1,15 @@
-from classes.GitClass import GitClass
-from classes.JsonClass import JsonClass
-from consts.env import CONFIG_FILE
+from src.git.GitClass import GitClass
+from src.config.JsonConfigManager import JsonClass
+from src.consts.env import CONFIG_FILE
 
 # Función principal
 def main():
     try:
         # Carga las configuraciones del json
         json_manager = JsonClass(CONFIG_FILE)
-        configs = json_manager.load_configs() 
-        selected_config = json_manager.select_config(configs) 
+        
+        # Flujo nuevo: Selecciona sección -> Selecciona config
+        selected_config = json_manager.get_full_config_flow()
 
         # Configura git
         git_manager = GitClass(selected_config)

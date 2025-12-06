@@ -1,13 +1,49 @@
-[
-    {
-      "number": 1,
-      "id": "TKT-XXXX-XXXX",
-      "name": "Descripción del ticket",
-      "task": "TKT-XXXX",
-      "section": "SECCION",
-      "project": "nombre-del-proyecto",
-      "repo_path": "ruta/al/repositorio",
-      "base_branch": "rama-base",
-      "feature_branch": "rama-feature"
+{
+  "sections": {
+    "URGENTES": {
+      "configs": [
+        {
+          "number": 1,
+          "id": "TKT-XXXX-XXXX",
+          "name": "Descripción del ticket urgente",
+          "task": "TKT-XXXX",
+          "section": "URGENTES",
+          "project": "nombre-del-proyecto",
+          "repo_path": "ruta/al/repositorio",
+          "base_branch": "rama-base",
+          "feature_branch": "rama-feature"
+        }
+      ]
+    },
+    "FRONTEND": {
+      "configs": [
+        {
+          "number": 2,
+          "id": "TKT-YYYY-YYYY",
+          "name": "Descripción del ticket frontend",
+          "task": "TKT-YYYY",
+          "section": "FRONTEND",
+          "project": "nombre-del-proyecto-frontend",
+          "repo_path": "ruta/al/repositorio/frontend",
+          "base_branch": "develop",
+          "feature_branch": "feature/nueva-funcionalidad"
+        }
+      ]
+    },
+    "BACKEND": {
+      "configs": [
+        {
+          "number": 3,
+          "id": "TKT-ZZZZ-ZZZZ",
+          "name": "Descripción del ticket backend",
+          "task": "TKT-ZZZZ",
+          "section": "BACKEND",
+          "project": "nombre-del-proyecto-backend",
+          "repo_path": "ruta/al/repositorio/backend",
+          "base_branch": "main",
+          "feature_branch": "feature/api-endpoint"
+        }
+      ]
     }
-  ]
+  }
+}

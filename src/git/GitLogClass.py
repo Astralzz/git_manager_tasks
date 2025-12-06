@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from byTypes.configTypes import GitCommandResult, ExtendedConfigType, LogStatus
+from src.types.configTypes import GitCommandResult, ExtendedConfigType, LogStatus
 
 
 # Clase para manejar logs diarios de las operaciones Git

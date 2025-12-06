@@ -2,9 +2,9 @@ import os
 import sys
 from typing import List, Optional
 
-from consts.env import PASS_SENSITIVE
-from classes.ConsoleColors import ConsoleColors
-from byTypes.configTypes import MenuOptionType, ExtendedConfigType, LoggerProtocol
+from src.consts.env import PASS_SENSITIVE
+from src.utils.ConsoleColors import ConsoleColors
+from src.types.configTypes import MenuOptionType, ExtendedConfigType, LoggerProtocol
 
 
 # Clase abstracta para manejar las configuraciones globales
