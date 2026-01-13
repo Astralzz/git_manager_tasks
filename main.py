@@ -5,6 +5,10 @@ from src.consts.env import CONFIG_FILE
 # Función principal
 def main():
     try:
+        
+        # Message de inicio
+        print("\nIniciando al Gestor de Repositorios Git...\n")
+                
         # Carga las configuraciones del json
         json_manager = JsonClass(CONFIG_FILE)
         

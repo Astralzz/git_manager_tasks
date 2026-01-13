@@ -101,13 +101,12 @@ class JsonConfigManager(GlobalClass):
         self.colors.info(f"📋 CONFIGURACIONES EN: {section.get('description')}")
         self.colors.info("=" * 60)
         
-        for config in configs:
+        for idx, config in enumerate(configs, 1):
             self.colors.info(
-                f"{config.get('number')}. {config.get('name')}"
+                f"{idx}. {config.get('name')}"
             )
             self.colors.info(f"   ID: {config.get('id')}")
             self.colors.info(f"   Proyecto: {config.get('project')}")
-            self.colors.info(f"   Task: {config.get('task')}")
             self.colors.info(f"   Base: {config.get('base_branch')} → Feature: {config.get('feature_branch')}")
             self.colors.info("")
 
@@ -137,40 +136,45 @@ class JsonConfigManager(GlobalClass):
                 selected = input("👉 Selecciona el número de la configuración: ").strip()
                 selected_num = int(selected)
                 
-                for config in configs:
-                    if config.get("number") == selected_num:
-                        return self._prepare_config(config, section_key)
-                
-                self.colors.error(f"No se encontró una configuración con el número '{selected_num}'")
+                if 1 <= selected_num <= len(configs):
+                    selected_config = configs[selected_num - 1]
+                    return self._prepare_config(selected_config, section_key, selected_num)
+                else:
+                    self.colors.error(f"Número fuera de rango. Selecciona entre 1 y {len(configs)}")
             except ValueError:
                 self.colors.error("Debes introducir un número válido.")
             except KeyboardInterrupt:
                 self.colors.info("\n\nOperación cancelada.")
                 sys.exit(0)
 
-    def _prepare_config(self, config: Dict, section_key: str) -> ExtendedConfigType:
+    def _prepare_config(self, config: Dict, section_key: str, config_number: int) -> ExtendedConfigType:
         """
         Prepara la configuración con la ruta completa y metadata adicional
         
         Args:
             config: Configuración base
             section_key: Clave de la sección
+            config_number: Número de la configuración (calculado automáticamente)
             
         Returns:
             Configuración extendida con toda la información necesaria
         """
         import os
         
-        repo_value = config.get("repo_path")
+        section = self.sections_data[section_key]
+        
+        # Obtener repo_path: primero de la config, si no existe, de la sección
+        repo_value = config.get("repo_path") or section.get("repo_path")
         if not repo_value:
-            self.colors.error("La configuración no contiene un valor válido para 'repo_path'.")
+            self.colors.error("No se encontró 'repo_path' ni en la configuración ni en la sección.")
             sys.exit(1)
         
-        section_description = self.sections_data[section_key].get("description", section_key)
+        section_description = section.get("description", section_key)
         
         # Crear configuración con tipo correcto
         config_with_path = {
             **config,
+            "number": config_number,
             "repo_path": os.path.join(BASE_PATH, repo_value),
             "section": section_description,
         }

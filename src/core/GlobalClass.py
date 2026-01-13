@@ -112,10 +112,11 @@ class GlobalClass:
         self.colors.success("Todos los campos requeridos son validos.")
 
     # Función abstracta para mostrar el menu de opciones
-    def show_menu(self, options: List["MenuOptionType"]) -> None:
+    def show_menu(self, options: List["MenuOptionType"], is_submenu: bool = False) -> None:
         """
         Muestra el menu de opciones
         @param {List[MenuOptionType]} options: Las opciones del menu [{ function: callable, description: str }]
+        @param {bool} is_submenu: Si es True, muestra 'Volver' en lugar de 'Salir'
         """
         # Validar que las opciones tengan la estructura correcta
         for option in options:
@@ -127,10 +128,11 @@ class GlobalClass:
         while True:
             # Mostrar el menu de opciones
             self.colors.info("--------------------------------")
-            self.colors.info("🔄 MENU DE OPCIONES PARA GIT:")
+            self.colors.info("🔄 MENU DE OPCIONES PARA GIT:" if not is_submenu else "🔄 SUBMENÚ DE OPCIONES:")
             for index, option in enumerate(options, start=1):
                 self.colors.info(f"[{index}] {option.get('description')}")
-            self.colors.info(f"[{len(options) + 1}] ❌ Salir")
+            exit_text = "🔙 Volver" if is_submenu else "❌ Salir"
+            self.colors.info(f"[{len(options) + 1}] {exit_text}")
             self.colors.info("--------------------------------\n")
 
             # Pedir la opción seleccionada
@@ -138,13 +140,17 @@ class GlobalClass:
                 "👉 Escribe el número de la opción que quieres usar: "
             ).strip()
 
-            # Verificar si el usuario quiere salir
+            # Verificar si el usuario quiere salir o volver
             if selected == str(len(options) + 1):
-                self.colors.info("🔄 Saliendo del programa...")
-                # Registra el fin del programa
-                if hasattr(self, 'logger') and self.logger is not None:
-                    self.logger.log_program_end()
-                sys.exit(0)
+                if is_submenu:
+                    self.colors.info("🔙 Volviendo al menú anterior...")
+                    return
+                else:
+                    self.colors.info("🔄 Saliendo del programa...")
+                    # Registra el fin del programa
+                    if hasattr(self, 'logger') and self.logger is not None:
+                        self.logger.log_program_end()
+                    sys.exit(0)
 
             # Verificar si la opción es válida y ejecutar la función correspondiente
             try:

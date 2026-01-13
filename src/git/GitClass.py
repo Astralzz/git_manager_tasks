@@ -12,6 +12,7 @@ from src.git.managers.GitPushManager import GitPushManager
 from src.git.managers.GitRebaseManager import GitRebaseManager
 from src.git.managers.GitResetManager import GitResetManager
 from src.git.managers.GitWorkflowManager import GitWorkflowManager
+from src.git.managers.GitAbortManager import GitAbortManager
 from src.types.configTypes import ExtendedConfigType, GitCommandResult, MenuOptionType
 
 
@@ -48,6 +49,7 @@ class GitClass(GlobalClass):
         self.rebase_manager = GitRebaseManager(self)
         self.reset_manager = GitResetManager(self)
         self.workflow_manager = GitWorkflowManager(self)
+        self.abort_manager = GitAbortManager(self)
 
         # Validaciones de seguridad
         self.branch_manager.validate_branch_configuration()
@@ -180,8 +182,8 @@ class GitClass(GlobalClass):
                 "description": "🗑️ Eliminar una rama por nombre",
             },
             {
-                "function": self.cancel_rebase,
-                "description": "🟥 Cancelar rebase en progreso",
+                "function": self.abort_operations_menu,
+                "description": "🟥 Cancelar operaciones en progreso (merge/rebase/cherry-pick)",
             },
             {
                 "function": self.feature_branch_workflow,
@@ -244,6 +246,10 @@ class GitClass(GlobalClass):
     def cancel_rebase(self) -> None:
         """Cancela un rebase en progreso"""
         self.rebase_manager.cancel_rebase()
+
+    def abort_operations_menu(self) -> None:
+        """Muestra el menú de operaciones de abort"""
+        self.abort_manager.abort_menu()
 
     def update_base_branch(self) -> None:
         """Actualiza la rama base con los últimos cambios del remoto"""

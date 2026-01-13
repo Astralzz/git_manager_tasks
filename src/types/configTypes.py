@@ -45,13 +45,12 @@ class ExtendedConfigType(ConfigWithPathType, total=False):
     feature_branch: Optional[str]
     project: Optional[str]
     section: Optional[str]
-    task: Optional[str]
-    date: Optional[str]
 
 
 # Tipo para secciones de configuración
-class ConfigSection(TypedDict):
+class ConfigSection(TypedDict, total=False):
     description: str
+    repo_path: Optional[str]
     configs: List[Dict]
 
 
@@ -70,7 +69,6 @@ class PartialConfigType(TypedDict, total=False):
     feature_branch: Optional[str]
     project: Optional[str]
     section: Optional[str]
-    task: Optional[str]
 
 
 # Tipo para las opciones del menú
