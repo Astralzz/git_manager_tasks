@@ -5,6 +5,7 @@ from typing import Optional, List
 
 from src.core.GlobalClass import GlobalClass
 from src.git.GitLogClass import GitLogClass
+from src.utils.ExceptionsClass import RestartProgramException
 from src.git.managers.GitBranchManager import GitBranchManager
 from src.git.managers.GitStashManager import GitStashManager
 from src.git.managers.GitPullManager import GitPullManager
@@ -194,6 +195,7 @@ class GitClass(GlobalClass):
                 "description": "📦 Restaurar cambios guardados (stash)",
             },
             {"function": self.view_today_logs, "description": "📋 Ver logs de hoy"},
+            {"function": self.restart_program, "description": "🔄 Cambiar de repositorio/configuración"},
         ]
         self.show_menu(options)
 
@@ -293,3 +295,14 @@ class GitClass(GlobalClass):
         except Exception as e:
             self.colors.error(f"Error al leer logs: {str(e)}")
             self.git_logger.log_error(str(e), "view_today_logs")
+    
+    def restart_program(self) -> None:
+        """Señala que se debe reiniciar el programa para cambiar de configuración"""
+        if self.confirm_action("¿Deseas cambiar de repositorio/configuración?"):
+            self.colors.success("🔄 Reiniciando para seleccionar otra configuración...")
+            # Lanzar excepción especial para indicar reinicio
+            raise RestartProgramException()
+        else:
+            self.colors.info("Operación cancelada.")
+
+

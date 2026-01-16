@@ -29,7 +29,7 @@ class GlobalClass:
         """
         self.colors.info("--------------------------------")
         self.colors.info(
-            f"👉 Configuración seleccionada: {config.get('id')} - {config.get('name')}"
+            f"👉 Configuración seleccionada: {config.get('name')}"
         )
         self.colors.info(f"👉 Número: {config.get('number')}")
         self.colors.info(f"👉 Repo: {config.get('repo_path')}")

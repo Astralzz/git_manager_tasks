@@ -235,7 +235,7 @@ class GitLogClass:
         start_message = f"🚀 INICIO DEL PROGRAMA GIT"
 
         # Información de la configuración
-        config_info = f"Config: {config.get('id')} - {config.get('name')}"
+        config_info = f"Config: {config.get('name')}"
         project_info = f"Proyecto: {config.get('project')}"
         section_info = f"Sección: {config.get('section')}"
         task_info = f"Tarea: {config.get('task')}"

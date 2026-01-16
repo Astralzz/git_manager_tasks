@@ -24,12 +24,10 @@ class GitWorkflowManager:
             self.feature_branch != "develop"
             or self.base_branch != "main"
             or not self.git_config
-            or self.git_config.get("id") != GIT_CONFIG_ID
         ):
             self.colors.error(
                 f"Este flujo solo es muy especifico y solo válido para: "
-                f"'develop' con base 'main' y "
-                f"configuración de ID única ?????."
+                f"'develop' con base 'main'."
             )
             return
 

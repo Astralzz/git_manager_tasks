@@ -1,47 +1,48 @@
 {
   "sections": {
     "URGENTES": {
+      "description": "🚨 Proyectos Urgentes",
+      "repo_path": "ruta/al/directorio/base",
+      "project": "nombre-del-proyecto",
       "configs": [
         {
-          "number": 1,
-          "id": "TKT-XXXX-XXXX",
           "name": "Descripción del ticket urgente",
           "task": "TKT-XXXX",
-          "section": "URGENTES",
-          "project": "nombre-del-proyecto",
-          "repo_path": "ruta/al/repositorio",
           "base_branch": "rama-base",
           "feature_branch": "rama-feature"
         }
       ]
     },
     "FRONTEND": {
+      "description": "💻 Proyectos Frontend",
+      "repo_path": "ruta/al/directorio/base/frontend",
+      "project": "nombre-del-proyecto-frontend",
       "configs": [
         {
-          "number": 2,
-          "id": "TKT-YYYY-YYYY",
           "name": "Descripción del ticket frontend",
           "task": "TKT-YYYY",
-          "section": "FRONTEND",
-          "project": "nombre-del-proyecto-frontend",
-          "repo_path": "ruta/al/repositorio/frontend",
           "base_branch": "develop",
           "feature_branch": "feature/nueva-funcionalidad"
         }
       ]
     },
     "BACKEND": {
+      "description": "⚙️ Proyectos Backend",
+      "repo_path": "ruta/al/directorio/base/backend",
+      "project": "nombre-del-proyecto-backend",
       "configs": [
         {
-          "number": 3,
-          "id": "TKT-ZZZZ-ZZZZ",
           "name": "Descripción del ticket backend",
           "task": "TKT-ZZZZ",
-          "section": "BACKEND",
-          "project": "nombre-del-proyecto-backend",
-          "repo_path": "ruta/al/repositorio/backend",
           "base_branch": "main",
           "feature_branch": "feature/api-endpoint"
+        },
+        {
+          "name": "Otro ticket backend con project diferente",
+          "project": "otro-proyecto-backend",
+          "task": "TKT-AAAA",
+          "base_branch": "main",
+          "feature_branch": "feature/nueva-api"
         }
       ]
     }

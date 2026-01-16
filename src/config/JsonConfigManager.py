@@ -102,12 +102,15 @@ class JsonConfigManager(GlobalClass):
         self.colors.info("=" * 60)
         
         for idx, config in enumerate(configs, 1):
+            # Obtener project: primero de la config, si no existe, de la sección
+            project_display = config.get('project') or section.get('project')
+            
             self.colors.info(
                 f"{idx}. {config.get('name')}"
             )
-            self.colors.info(f"   ID: {config.get('id')}")
-            self.colors.info(f"   Proyecto: {config.get('project')}")
-            self.colors.info(f"   Base: {config.get('base_branch')} → Feature: {config.get('feature_branch')}")
+            self.colors.info(f"   Proyecto: {project_display}")
+            self.colors.info(f"   Base: {config.get('base_branch')}")
+            self.colors.info(f"   Feature: {config.get('feature_branch')}")
             self.colors.info("")
 
     def select_config_from_section(self, section_key: str) -> ExtendedConfigType:
@@ -169,13 +172,30 @@ class JsonConfigManager(GlobalClass):
             self.colors.error("No se encontró 'repo_path' ni en la configuración ni en la sección.")
             sys.exit(1)
         
+        # Obtener project: primero de la config, si no existe, de la sección
+        project_value = config.get("project") or section.get("project")        
+        name_folder = config.get("name_folder") or section.get("name_folder")     
         section_description = section.get("description", section_key)
+        
+        # Construir la ruta completa del repositorio
+        # Si existe name_folder: la ruta contiene varios proyectos, usar name_folder
+        # Si NO existe name_folder: la ruta ES el proyecto completo, no agregar nada más
+        if name_folder:
+            # Caso: BASE_PATH/repo_value/name_folder (varios proyectos en repo_value)
+            full_repo_path = os.path.join(BASE_PATH, repo_value, name_folder)
+        else:
+            # Caso: BASE_PATH/repo_value (repo_value ya es el proyecto completo)
+            full_repo_path = os.path.join(BASE_PATH, repo_value)
+        
+        # Normalizar todas las rutas a usar / en lugar de \
+        full_repo_path = full_repo_path.replace("\\", "/")
         
         # Crear configuración con tipo correcto
         config_with_path = {
             **config,
             "number": config_number,
-            "repo_path": os.path.join(BASE_PATH, repo_value),
+            "repo_path": full_repo_path,
+            "project": project_value or "N/A",
             "section": section_description,
         }
         

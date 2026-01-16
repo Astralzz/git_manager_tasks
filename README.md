@@ -1,11 +1,11 @@
 # Git Manager - Gestor de Repositorios Git
 
-## 📌 Contacto  
+## 📌 Contacto
 
 📌 **Portafolio:** [astralzz.io](https://astralzz.github.io/)  
 📩 **Email:** [edain.cortez@outlook.com](mailto:edain.cortez@outlook.com)  
 🔗 **LinkedIn:** [linkedin.com/in/Edain](https://www.linkedin.com/in/edain-jcc)  
-😺 **GitHub:** [github.com/Astralzz](https://github.com/Astralzz)  
+😺 **GitHub:** [github.com/Astralzz](https://github.com/Astralzz)
 
 ## 🎯 Propósito y Descripción
 
@@ -104,45 +104,39 @@ Este archivo contiene la configuración central de todos tus repositorios, **org
 {
   "sections": {
     "URGENTES": {
+      "description": "🚨 Proyectos Urgentes",
+      "repo_path": "Projects",
+      "project": "api-gateway",
       "configs": [
         {
-          "number": 1,
-          "id": "TKT-1234-5678",
           "name": "Implementación de autenticación OAuth2",
           "task": "TKT-1234",
-          "section": "URGENTES",
-          "project": "api-gateway",
-          "repo_path": "C:/Projects/api-gateway",
           "base_branch": "main",
           "feature_branch": "feature/oauth2-auth"
         }
       ]
     },
     "FRONTEND": {
+      "description": "💻 Proyectos Frontend",
+      "repo_path": "Projects/frontend",
+      "project": "admin-dashboard",
       "configs": [
         {
-          "number": 2,
-          "id": "TKT-2345-6789",
           "name": "Dashboard administrativo con React",
           "task": "TKT-2345",
-          "section": "FRONTEND",
-          "project": "admin-dashboard",
-          "repo_path": "C:/Projects/admin-dashboard",
           "base_branch": "develop",
           "feature_branch": "feature/dashboard-ui"
         }
       ]
     },
     "BACKEND": {
+      "description": "⚙️ Proyectos Backend",
+      "repo_path": "Projects/backend",
+      "project": "notification-service",
       "configs": [
         {
-          "number": 3,
-          "id": "TKT-3456-7890",
           "name": "Microservicio de notificaciones",
           "task": "TKT-3456",
-          "section": "BACKEND",
-          "project": "notification-service",
-          "repo_path": "C:/Projects/notification-service",
           "base_branch": "main",
           "feature_branch": "feature/email-notifications"
         }
@@ -160,25 +154,35 @@ El sistema usa un **flujo de selección en 2 pasos**:
 2. **Paso 2**: Selecciona una configuración específica dentro de esa sección
 
 Esto permite:
+
 - ✅ Mejor organización de proyectos por prioridad o área
 - ✅ Navegación más rápida entre configuraciones relacionadas
 - ✅ Agrupación lógica de repositorios similares
 - ✅ Escalabilidad para múltiples proyectos
-```
+
+````
 
 #### Campos de Configuración
 
-| Campo            | Tipo    | Descripción                                    | Requerido |
-| ---------------- | ------- | ---------------------------------------------- | --------- |
-| `number`         | Integer | Número secuencial del repositorio              | ✅        |
-| `id`             | String  | Identificador único del ticket/tarea           | ✅        |
-| `name`           | String  | Descripción detallada del proyecto             | ✅        |
-| `task`           | String  | Código del ticket (ej: TKT-1234)               | ✅        |
-| `section`        | String  | Sección del proyecto (FRONTEND, BACKEND, etc.) | ✅        |
-| `project`        | String  | Nombre del proyecto                            | ✅        |
-| `repo_path`      | String  | Ruta absoluta al repositorio                   | ✅        |
-| `base_branch`    | String  | Rama principal (main, master, develop)         | ✅        |
-| `feature_branch` | String  | Rama de características                        | ❌        |
+**A nivel de sección:**
+
+| Campo         | Tipo   | Descripción                                       | Requerido |
+| ------------- | ------ | ------------------------------------------------- | --------- |
+| `description` | String | Descripción de la sección con emoji               | ✅        |
+| `repo_path`   | String | Ruta base al directorio (sin nombre del proyecto) | ✅        |
+| `project`     | String | Nombre del proyecto (se concatena con repo_path)  | ✅        |
+
+**A nivel de configuración individual:**
+
+| Campo            | Tipo   | Descripción                                   | Requerido |
+| ---------------- | ------ | --------------------------------------------- | --------- |
+| `name`           | String | Descripción detallada de la tarea/feature     | ✅        |
+| `task`           | String | Código del ticket (ej: TKT-1234)              | ❌        |
+| `base_branch`    | String | Rama principal (main, master, develop)        | ✅        |
+| `feature_branch` | String | Rama de características                       | ✅        |
+| `project`        | String | Override del project de la sección (opcional) | ❌        |
+
+**Nota:** La ruta completa del repositorio se construye como: `BASE_PATH/repo_path/project`
 
 ### 2. Variables de Entorno (`.env`)
 
@@ -199,7 +203,7 @@ LOG_FILE=git_manager.log
 # Configuración de Git
 GIT_USER_NAME=Tu Nombre
 GIT_USER_EMAIL=tu.email@ejemplo.com
-```
+````
 
 ## 🎯 Uso y Funcionalidades
 
@@ -248,53 +252,59 @@ python main.py
 
 El programa ofrece un **menú interactivo** con las siguientes operaciones:
 
-| Opción | Comando                      | Descripción                                                |
-| ------ | ---------------------------- | ---------------------------------------------------------- |
-| **1**  | Ver estado                   | Muestra el estado actual del repositorio (cambios, rama)  |
-| **2**  | Crear/cambiar rama           | Validación y checkout a rama feature con manejo de stash   |
-| **3**  | Pull rama actual             | Actualiza la rama actual desde el remoto                   |
-| **4**  | Pull rama base               | Actualiza la rama base (main/develop) desde el remoto      |
-| **5**  | Subir cambios                | Commit interactivo + push al remoto                        |
-| **6**  | Rebase con rama base         | Integra cambios de la rama base a la feature               |
-| **7**  | Resetear a rama base         | Reset completo con opción de backup automático             |
-| **8**  | Guardar cambios (stash)      | Guarda cambios locales temporalmente                       |
-| **9**  | Flujo GitFlow completo       | Ejecuta flujo completo: pull base + checkout + rebase      |
-| **10** | Eliminar rama                | Elimina ramas locales y remotas con confirmación          |
-| **0**  | Salir                        | Cierra el programa                                         |
+| Opción | Comando                 | Descripción                                              |
+| ------ | ----------------------- | -------------------------------------------------------- |
+| **1**  | Ver estado              | Muestra el estado actual del repositorio (cambios, rama) |
+| **2**  | Crear/cambiar rama      | Validación y checkout a rama feature con manejo de stash |
+| **3**  | Pull rama actual        | Actualiza la rama actual desde el remoto                 |
+| **4**  | Pull rama base          | Actualiza la rama base (main/develop) desde el remoto    |
+| **5**  | Subir cambios           | Commit interactivo + push al remoto                      |
+| **6**  | Rebase con rama base    | Integra cambios de la rama base a la feature             |
+| **7**  | Resetear a rama base    | Reset completo con opción de backup automático           |
+| **8**  | Guardar cambios (stash) | Guarda cambios locales temporalmente                     |
+| **9**  | Flujo GitFlow completo  | Ejecuta flujo completo: pull base + checkout + rebase    |
+| **10** | Eliminar rama           | Elimina ramas locales y remotas con confirmación         |
+| **0**  | Salir                   | Cierra el programa                                       |
 
 ### Características Avanzadas
 
 #### Gestión Inteligente de Ramas
+
 - ✅ Validación automática de configuración de ramas
 - ✅ Checkout seguro con manejo de cambios pendientes
 - ✅ Stash automático si hay cambios sin commit
 - ✅ Creación de ramas si no existen
 
 #### Pull con Manejo de Conflictos
+
 - ✅ Pull de rama actual o rama base
 - ✅ Detección automática de conflictos
 - ✅ Instrucciones claras para resolución
 - ✅ Logging de todas las operaciones
 
 #### Push Seguro
+
 - ✅ Verificación de cambios antes de commit
 - ✅ Mensaje de commit interactivo
 - ✅ Configuración de upstream automática
 - ✅ Confirmación antes de push
 
 #### Rebase Interactivo
+
 - ✅ Pull automático de rama base primero
 - ✅ Rebase con manejo de conflictos
 - ✅ Opciones: continuar, abortar, saltar
 - ✅ Guía paso a paso para resolución
 
 #### Reset con Backup
+
 - ✅ Creación de rama de backup antes del reset
 - ✅ Reset hard a la rama base
 - ✅ Opciones de recuperación segura
 - ✅ Confirmación obligatoria
 
 #### GitFlow Workflow
+
 - ✅ Flujo completo automatizado
 - ✅ Pull base → Checkout feature → Rebase
 - ✅ Manejo de errores en cada paso
@@ -352,6 +362,7 @@ git_manager_tasks/
 El proyecto utiliza una arquitectura modular bien organizada:
 
 #### **src/git/** - Operaciones Git
+
 - **GitClass.py**: Coordinador principal que delega operaciones a managers especializados
 - **GitLogClass.py**: Sistema de logging con archivos diarios organizados
 - **managers/**: 7 gestores especializados siguiendo el patrón Manager:
@@ -364,17 +375,21 @@ El proyecto utiliza una arquitectura modular bien organizada:
   - `GitWorkflowManager`: Implementación de GitFlow y flujos complejos
 
 #### **src/config/** - Gestión de Configuración
+
 - **JsonConfigManager**: Carga y selección de configuraciones organizadas por secciones
   - Flujo en 2 pasos: Selección de sección → Selección de configuración
 
 #### **src/core/** - Funcionalidades Base
+
 - **GlobalClass**: Clase base con métodos comunes (menús, confirmaciones, validaciones)
 - **env.py**: Constantes y variables de entorno centralizadas
 
 #### **src/types/** - Definiciones de Tipos
+
 - **configTypes.py**: TypedDict para configuraciones, comandos Git y resultados
 
 #### **src/utils/** - Utilidades
+
 - **ConsoleColors**: Formateo de salida en consola (success, error, warning, info)
 
 ## 🔧 Personalización Avanzada
@@ -387,15 +402,13 @@ El proyecto utiliza una arquitectura modular bien organizada:
 {
   "sections": {
     "FRONTEND": {
+      "description": "💻 Proyectos Frontend",
+      "repo_path": "Projects/frontend",
+      "project": "admin-dashboard",
       "configs": [
         {
-          "number": 4,
-          "id": "TKT-5678-9012",
           "name": "Implementación de dashboard administrativo",
           "task": "TKT-5678",
-          "section": "FRONTEND",
-          "project": "admin-dashboard",
-          "repo_path": "C:/Projects/admin-dashboard",
           "base_branch": "develop",
           "feature_branch": "feature/admin-dashboard"
         }
@@ -418,7 +431,7 @@ python main.py
 
 Para agregar una nueva categoría de proyectos:
 
-```json
+````json
 {
   "sections": {
     "DEVOPS": {
@@ -457,7 +470,7 @@ El sistema usa logging diario automatizado:
     "output": "Already up to date.",
     "repo_path": "C:/Projects/api-gateway"
 }
-```
+````
 
 #### Características del Sistema de Logging
 
@@ -562,6 +575,7 @@ Cada operación Git genera una entrada de log con:
 Estrategias recomendadas para organizar tus repositorios:
 
 **Por Prioridad:**
+
 ```
 - URGENTES: Tareas críticas con deadline inmediato
 - ALTA: Prioridad alta pero no urgente
@@ -570,6 +584,7 @@ Estrategias recomendadas para organizar tus repositorios:
 ```
 
 **Por Área Técnica:**
+
 ```
 - FRONTEND: Aplicaciones de usuario
 - BACKEND: APIs y servicios
@@ -578,6 +593,7 @@ Estrategias recomendadas para organizar tus repositorios:
 ```
 
 **Por Proyecto:**
+
 ```
 - PROYECTO_A: Todos los repos del proyecto A
 - PROYECTO_B: Todos los repos del proyecto B
