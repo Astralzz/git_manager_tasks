@@ -16,11 +16,12 @@ class GitBranchManager:
         self.git_logger = git_instance.git_logger
         self.base_branch = git_instance.base_branch
         self.feature_branch = git_instance.feature_branch
+        self.branch_type_label = git_instance.branch_type_label
 
     def validate_branch_configuration(self) -> None:
         """Valida que la configuración de ramas sea correcta"""
         if not self.feature_branch:
-            self.colors.error("La rama feature no está configurada.")
+            self.colors.error("La rama destino no está configurada.")
             sys.exit(1)
 
         if not self.base_branch:
@@ -28,7 +29,7 @@ class GitBranchManager:
             sys.exit(1)
 
         if self.feature_branch.lower() in ["main", "master"]:
-            self.colors.error(f"La rama feature no puede ser '{self.feature_branch}'.")
+            self.colors.error(f"La rama destino no puede ser '{self.feature_branch}'.")
             if hasattr(self.git, "logger"):
                 self.git_logger.log_error(
                     f"Configuración inválida: feature_branch = {self.feature_branch}",
@@ -37,7 +38,7 @@ class GitBranchManager:
             sys.exit(1)
 
         if self.base_branch == self.feature_branch:
-            self.colors.error("La rama base y la rama feature no pueden ser iguales.")
+            self.colors.error("La rama base y la rama destino no pueden ser iguales.")
             if hasattr(self.git, "logger"):
                 self.git_logger.log_error(
                     "Configuración inválida: base_branch == feature_branch",
@@ -46,7 +47,7 @@ class GitBranchManager:
             sys.exit(1)
 
     def auto_checkout_to_feature_branch(self) -> None:
-        """Intenta cambiar automáticamente a la rama feature configurada"""
+        """Intenta cambiar automáticamente a la rama seleccionada"""
         try:
             result = self.git.run_git_command(
                 "git branch --show-current", allow_failure=True
@@ -57,7 +58,7 @@ class GitBranchManager:
 
             if current_branch == target_branch:
                 self.colors.success(
-                    f"Ya estás en la rama feature: {Fore.YELLOW}{target_branch}{Fore.RESET}"
+                    f"Ya estás en la rama {self.branch_type_label}: {Fore.YELLOW}{target_branch}{Fore.RESET}"
                 )
                 return
 
@@ -78,7 +79,7 @@ class GitBranchManager:
     def _checkout_existing_branch(self, current_branch: str, target_branch: str) -> None:
         """Hace checkout a una rama existente"""
         self.colors.info(
-            f" Cambiando a la rama feature: {Fore.YELLOW}{target_branch}{Fore.RESET}"
+            f" Cambiando a la rama {self.branch_type_label}: {Fore.YELLOW}{target_branch}{Fore.RESET}"
         )
         checkout_result = self.git.run_git_command(
             f"git checkout {target_branch}", allow_failure=True
@@ -154,8 +155,7 @@ class GitBranchManager:
                     
             except KeyboardInterrupt:
                 self.colors.info(f"\n📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}")
-                return
-        
+                raise
         self.colors.info(f"📍 Permaneciendo en: {Fore.CYAN}{current_branch}{Fore.RESET}")
 
     def _stash_and_checkout(self, current_branch: str, target_branch: str) -> bool:
@@ -246,7 +246,7 @@ class GitBranchManager:
             f"   Actualmente estás en: {Fore.CYAN}{current_branch}{Fore.RESET}"
         )
         self.colors.info(
-            "   Usa la opción 6 del menú para crear la rama cuando estés listo."
+            "   Usa la opción para crear la rama cuando estés listo."
         )
         self.colors.info("━" * 60)
         self.git_logger.log_operation(
@@ -260,8 +260,9 @@ class GitBranchManager:
         self.git.run_git_command("git branch")
 
     def create_branch_feature(self) -> None:
-        """Crea una nueva rama feature desde la rama actual"""
-        self.git.ask_pass()
+        """Crea la rama seleccionada desde su rama base configurada."""
+        if not self.git.ask_pass():
+            return
 
         local_check = self.git.run_git_command(
             f"git rev-parse --verify --quiet {self.feature_branch}", allow_failure=True
@@ -284,9 +285,13 @@ class GitBranchManager:
             self.colors.info(" Usa git checkout para cambiar a ella.")
             return
 
-        self.colors.info(f" Creando nueva rama: {self.feature_branch}")
+        self.colors.info(
+            f" Creando {self.branch_type_label}: {self.feature_branch} "
+            f"desde {self.base_branch}"
+        )
         create_result = self.git.run_git_command(
-            f"git checkout -b {self.feature_branch}", allow_failure=True
+            f"git checkout -b {self.feature_branch} {self.base_branch}",
+            allow_failure=True,
         )
 
         if create_result["returncode"] == 0:
@@ -304,7 +309,8 @@ class GitBranchManager:
 
     def delete_branch(self) -> None:
         """Elimina una rama específica con menú interactivo"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         branches_result = self.git.run_git_command("git branch", allow_failure=True)
         if branches_result["returncode"] != 0:

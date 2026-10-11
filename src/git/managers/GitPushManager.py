@@ -16,7 +16,8 @@ class GitPushManager:
 
     def upload_changes(self) -> None:
         """Sube los cambios al repositorio remoto"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         try:
             branch_result = self.git.run_git_command("git branch --show-current")

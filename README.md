@@ -96,93 +96,70 @@ python main.py --help
 
 ## ⚙️ Configuración Detallada
 
-### 1. Archivo de Configuración Principal (`config.json`)
+### 1. Archivo principal (config.json)
 
-Este archivo contiene la configuración central de todos tus repositorios, **organizado por secciones** para mejor navegación:
+El selector sigue este recorrido: **área → grupo → proyecto → rama nueva o flujo guardado → tipo de rama**. Los arreglos conservan el orden que aparece en el menú.
 
 ```json
 {
-  "sections": {
-    "URGENTES": {
-      "description": "🚨 Proyectos Urgentes",
-      "repo_path": "Projects",
-      "project": "api-gateway",
-      "configs": [
+  "repo_roots": {
+    "front": "Projects/Gatherleads/frontend",
+    "backend": "Projects/Gatherleads/backend"
+  },
+  "branch_types": {
+    "hotfix": { "prefix": "hotfix/", "environment": "QA QUITO" },
+    "release": { "prefix": "release/", "environment": "QA ARG" },
+    "feature": { "prefix": "feature/", "environment": "DEV" }
+  },
+  "areas": [
+    {
+      "id": "back",
+      "name": "Back",
+      "root": "backend",
+      "groups": [
         {
-          "name": "Implementación de autenticación OAuth2",
-          "task": "TKT-1234",
-          "base_branch": "main",
-          "feature_branch": "feature/oauth2-auth"
-        }
-      ]
-    },
-    "FRONTEND": {
-      "description": "💻 Proyectos Frontend",
-      "repo_path": "Projects/frontend",
-      "project": "admin-dashboard",
-      "configs": [
-        {
-          "name": "Dashboard administrativo con React",
-          "task": "TKT-2345",
-          "base_branch": "develop",
-          "feature_branch": "feature/dashboard-ui"
-        }
-      ]
-    },
-    "BACKEND": {
-      "description": "⚙️ Proyectos Backend",
-      "repo_path": "Projects/backend",
-      "project": "notification-service",
-      "configs": [
-        {
-          "name": "Microservicio de notificaciones",
-          "task": "TKT-3456",
-          "base_branch": "main",
-          "feature_branch": "feature/email-notifications"
+          "id": "principal",
+          "name": "Proyectos principales",
+          "projects": [
+            {
+              "id": "backoffice",
+              "name": "Backoffice",
+              "folder": "backoffice",
+              "branch_base_defaults": {
+                "hotfix": "main",
+                "release": "main",
+                "feature": "main"
+              },
+              "branches": [
+                {
+                  "id": "GL-1234",
+                  "name": "GL-1234 - Ejemplo de flujo encadenado",
+                  "slug": "ejemplo-de-tarea",
+                  "types": {
+                    "hotfix": { "base": "main" },
+                    "release": { "base": "main" },
+                    "feature": {
+                      "base": "release",
+                      "suffix": "-units"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     }
-  }
+  ]
 }
 ```
 
-#### Estructura de Secciones
-
-El sistema usa un **flujo de selección en 2 pasos**:
-
-1. **Paso 1**: Selecciona una sección (URGENTES, FRONTEND, BACKEND, etc.)
-2. **Paso 2**: Selecciona una configuración específica dentro de esa sección
-
-Esto permite:
-
-- ✅ Mejor organización de proyectos por prioridad o área
-- ✅ Navegación más rápida entre configuraciones relacionadas
-- ✅ Agrupación lógica de repositorios similares
-- ✅ Escalabilidad para múltiples proyectos
-
-````
-
-#### Campos de Configuración
-
-**A nivel de sección:**
-
-| Campo         | Tipo   | Descripción                                       | Requerido |
-| ------------- | ------ | ------------------------------------------------- | --------- |
-| `description` | String | Descripción de la sección con emoji               | ✅        |
-| `repo_path`   | String | Ruta base al directorio (sin nombre del proyecto) | ✅        |
-| `project`     | String | Nombre del proyecto (se concatena con repo_path)  | ✅        |
-
-**A nivel de configuración individual:**
-
-| Campo            | Tipo   | Descripción                                   | Requerido |
-| ---------------- | ------ | --------------------------------------------- | --------- |
-| `name`           | String | Descripción detallada de la tarea/feature     | ✅        |
-| `task`           | String | Código del ticket (ej: TKT-1234)              | ❌        |
-| `base_branch`    | String | Rama principal (main, master, develop)        | ✅        |
-| `feature_branch` | String | Rama de características                       | ✅        |
-| `project`        | String | Override del project de la sección (opcional) | ❌        |
-
-**Nota:** La ruta completa del repositorio se construye como: `BASE_PATH/repo_path/project`
+- `repo_roots` guarda cada ruta compartida una sola vez. Las rutas relativas se combinan con `BASE_PATH`; también se aceptan rutas absolutas.
+- Cada área o grupo puede elegir una raíz. Los proyectos guardan solo su carpeta relativa.
+- `branch_base_defaults` fija la base por tipo para las ramas nuevas de ese proyecto.
+- `branches` contiene atajos opcionales para flujos con nombres o bases especiales. `base` puede ser una rama real (`main`) o un tipo del mismo flujo (`release`). Cuando una rama se basa en otro tipo del flujo, hereda su nombre; `suffix` agrega un final opcional como `-units`. Define `slug` solo si esa rama necesita un nombre distinto.
+- La opción **Nueva rama** siempre está disponible: escribe el sufijo, elige `feature`, `hotfix` o `release` y se aplica la base configurada. No hace falta agregar cada defecto al JSON.
+- Para admitir otro prefijo, agrega su tipo en `branch_types` y configura la base correspondiente en cada proyecto que lo use.
 
 ### 2. Variables de Entorno (`.env`)
 
@@ -214,9 +191,10 @@ GIT_USER_EMAIL=tu.email@ejemplo.com
 python main.py
 
 # El programa te guiará a través de:
-# 1. Selección de sección (URGENTES, FRONTEND, BACKEND, etc.)
-# 2. Selección de repositorio dentro de la sección
-# 3. Menú de operaciones Git disponibles
+# 1. Selección de área (Front, Back u Otros)
+# 2. Grupo y proyecto
+# 3. Rama nueva o flujo guardado y tipo de rama
+# 4. Menú de operaciones Git disponibles
 ```
 
 ### Flujo de Trabajo Típico
@@ -225,14 +203,8 @@ python main.py
 # 1. Inicia el programa
 python main.py
 
-# 2. Selecciona una sección
-# Ejemplo: [1] URGENTES, [2] FRONTEND, [3] BACKEND
-> 2  # Selecciona FRONTEND
-
-# 3. Selecciona un repositorio
-# Ejemplo: [1] admin-dashboard, [2] user-portal
-> 1  # Selecciona admin-dashboard
-
+# 2. Selecciona área, grupo y proyecto; luego una rama nueva o un flujo guardado
+# 3. Elige el tipo de rama y, si es nueva, escribe su nombre
 # 4. Selecciona una operación del menú Git
 # [1] Ver estado del repositorio
 # [2] Crear/cambiar rama
@@ -242,8 +214,7 @@ python main.py
 # [6] Rebase con rama base
 # [7] Resetear a rama base
 # [8] Guardar cambios localmente (stash)
-# [9] Flujo GitFlow completo
-# [10] Eliminar rama
+# [9] Eliminar rama
 # [0] Salir
 > 3  # Pull rama actual
 ```
@@ -255,15 +226,14 @@ El programa ofrece un **menú interactivo** con las siguientes operaciones:
 | Opción | Comando                 | Descripción                                              |
 | ------ | ----------------------- | -------------------------------------------------------- |
 | **1**  | Ver estado              | Muestra el estado actual del repositorio (cambios, rama) |
-| **2**  | Crear/cambiar rama      | Validación y checkout a rama feature con manejo de stash |
+| **2**  | Crear/cambiar rama      | Validación y checkout a la rama seleccionada con manejo de stash |
 | **3**  | Pull rama actual        | Actualiza la rama actual desde el remoto                 |
 | **4**  | Pull rama base          | Actualiza la rama base (main/develop) desde el remoto    |
 | **5**  | Subir cambios           | Commit interactivo + push al remoto                      |
-| **6**  | Rebase con rama base    | Integra cambios de la rama base a la feature             |
+| **6**  | Rebase con rama base    | Integra cambios de la rama base a la rama seleccionada   |
 | **7**  | Resetear a rama base    | Reset completo con opción de backup automático           |
 | **8**  | Guardar cambios (stash) | Guarda cambios locales temporalmente                     |
-| **9**  | Flujo GitFlow completo  | Ejecuta flujo completo: pull base + checkout + rebase    |
-| **10** | Eliminar rama           | Elimina ramas locales y remotas con confirmación         |
+| **9**  | Eliminar rama           | Elimina ramas locales y remotas con confirmación         |
 | **0**  | Salir                   | Cierra el programa                                       |
 
 ### Características Avanzadas
@@ -303,19 +273,12 @@ El programa ofrece un **menú interactivo** con las siguientes operaciones:
 - ✅ Opciones de recuperación segura
 - ✅ Confirmación obligatoria
 
-#### GitFlow Workflow
-
-- ✅ Flujo completo automatizado
-- ✅ Pull base → Checkout feature → Rebase
-- ✅ Manejo de errores en cada paso
-- ✅ Rollback automático si falla
-
 ## 📁 Estructura del Proyecto
 
 ```bash
 git_manager_tasks/
 ├── 📄 main.py                      # Punto de entrada principal
-├── 📄 config.json                 # Configuración de repositorios (organizado por secciones)
+├── 📄 config.json                 # Configuración de repositorios por áreas y proyectos
 ├── 📄 requirements.txt            # Dependencias de Python
 ├── 📄 .env                        # Variables de entorno (opcional)
 ├── 📄 install_dependencies.bat    # Script de instalación Windows
@@ -334,10 +297,10 @@ git_manager_tasks/
 │   │       ├── 📄 GitRebaseManager.py    # Integración de cambios (rebase)
 │   │       ├── 📄 GitResetManager.py     # Operaciones de reset con backup
 │   │       ├── 📄 GitStashManager.py     # Manejo de cambios temporales (stash)
-│   │       └── 📄 GitWorkflowManager.py  # Flujos de trabajo GitFlow
+│   │       └── 📄 GitAbortManager.py     # Cancelación de operaciones en progreso
 │   ├── 📁 config/                 # ⚙️ Módulo de configuración
 │   │   ├── 📄 __init__.py
-│   │   └── 📄 JsonConfigManager.py  # Gestor de configuración por secciones
+│   │   └── 📄 JsonConfigManager.py  # Selector de áreas, proyectos y ramas
 │   ├── 📁 core/                   # 🎯 Módulo central con utilidades base
 │   │   ├── 📄 __init__.py
 │   │   ├── 📄 GlobalClass.py     # Clase base con funcionalidades comunes
@@ -372,12 +335,12 @@ El proyecto utiliza una arquitectura modular bien organizada:
   - `GitRebaseManager`: Rebase interactivo con resolución de conflictos
   - `GitResetManager`: Reset seguro con creación de backups
   - `GitStashManager`: Stash de cambios temporales
-  - `GitWorkflowManager`: Implementación de GitFlow y flujos complejos
+  - `GitAbortManager`: Cancelación de merge, rebase y cherry-pick
 
 #### **src/config/** - Gestión de Configuración
 
-- **JsonConfigManager**: Carga y selección de configuraciones organizadas por secciones
-  - Flujo en 2 pasos: Selección de sección → Selección de configuración
+- **JsonConfigManager**: Navega áreas, grupos, proyectos y tipos de rama
+  - Flujo: área → grupo → proyecto → rama nueva o flujo guardado → tipo de rama
 
 #### **src/core/** - Funcionalidades Base
 
@@ -394,63 +357,33 @@ El proyecto utiliza una arquitectura modular bien organizada:
 
 ## 🔧 Personalización Avanzada
 
-### Agregar Nuevos Repositorios
+### Agregar un proyecto
 
-1. **Editar `config.json`** añadiendo configuración en la sección apropiada:
+1. Reutiliza una ruta de `repo_roots` o agrega una nueva.
+2. Coloca el proyecto dentro de un grupo del área correspondiente.
+3. Define su nombre, carpeta relativa y bases predeterminadas por tipo.
 
 ```json
 {
-  "sections": {
-    "FRONTEND": {
-      "description": "💻 Proyectos Frontend",
-      "repo_path": "Projects/frontend",
-      "project": "admin-dashboard",
-      "configs": [
-        {
-          "name": "Implementación de dashboard administrativo",
-          "task": "TKT-5678",
-          "base_branch": "develop",
-          "feature_branch": "feature/admin-dashboard"
-        }
-      ]
-    }
-  }
+  "id": "customer-profile",
+  "name": "Customer Profile",
+  "folder": "hdl-v2-customer-profile-sd",
+  "branch_base_defaults": {
+    "hotfix": "main",
+    "release": "main",
+    "feature": "main"
+  },
+  "branches": []
 }
 ```
 
-2. **Verificar la configuración**:
+### Agregar un grupo
 
-```bash
-python main.py
-# 1. Selecciona la sección "FRONTEND"
-# 2. Selecciona el repositorio número 4
-# 3. Ejecuta las operaciones Git necesarias
-```
+Agrega un objeto con `id`, `name` y `projects` dentro del área deseada. Los grupos y proyectos aparecen en el mismo orden en que están escritos.
 
-### Crear Nueva Sección
+### Guardar un flujo especial o agregar un tipo de rama
 
-Para agregar una nueva categoría de proyectos:
-
-````json
-{
-  "sections": {
-    "DEVOPS": {
-      "configs": [
-        {
-          "number": 5,
-          "id": "TKT-6789-0123",
-          "name": "Pipeline de CI/CD con Jenkins",
-          "task": "TKT-6789",
-          "section": "DEVOPS",
-          "project": "ci-cd-pipeline",
-          "repo_path": "C:/Projects/ci-cd-pipeline",
-          "base_branch": "main",
-          "feature_branch": "feature/jenkins-pipeline"
-        }
-      ]
-    }
-  }
-}
+Para un defecto o issue normal, usa **Nueva rama** en el menú; no requiere editar el JSON. Guarda un elemento en `branches` solo cuando quieras un atajo con un nombre fijo o una cadena de bases especial. Un Bolt de AI-DLC puede guardarse de esa forma, pero los trabajos puntuales no necesitan ser Bolts. Para otra convención, agrega el prefijo y entorno en `branch_types` y configura su base en el proyecto.
 
 ### Configuración de Logging
 
@@ -563,42 +496,19 @@ Cada operación Git genera una entrada de log con:
 
 ### Configuración de Repositorios
 
-1. **Usar rutas absolutas** en `repo_path`
-2. **Mantener nombres descriptivos** en el campo `name`
-3. **Organizar por secciones** lógicas (URGENTES, FRONTEND, BACKEND, DEVOPS)
-4. **Usar convenciones consistentes** para `task` y `id`
-5. **Agrupar proyectos relacionados** en la misma sección
-6. **Mantener la numeración secuencial** en el campo `number`
+1. Reutiliza las entradas de `repo_roots` para rutas compartidas.
+2. Usa nombres de proyecto que distingan rápidamente cada repositorio.
+3. Ordena proyectos en áreas y grupos que coincidan con tu forma de trabajo.
+4. Usa `branches` solo para flujos que convenga guardar como atajos.
+5. Declara las bases normales en `branch_base_defaults` y las excepciones en cada flujo guardado.
 
-### Organización por Secciones
+### Organización de áreas y grupos
 
-Estrategias recomendadas para organizar tus repositorios:
+Agrupa primero por área y luego por el propósito de cada repositorio. Por ejemplo:
 
-**Por Prioridad:**
-
-```
-- URGENTES: Tareas críticas con deadline inmediato
-- ALTA: Prioridad alta pero no urgente
-- MEDIA: Desarrollo regular
-- BAJA: Mejoras y refactoring
-```
-
-**Por Área Técnica:**
-
-```
-- FRONTEND: Aplicaciones de usuario
-- BACKEND: APIs y servicios
-- DEVOPS: Infraestructura y CI/CD
-- DATABASE: Migraciones y esquemas
-```
-
-**Por Proyecto:**
-
-```
-- PROYECTO_A: Todos los repos del proyecto A
-- PROYECTO_B: Todos los repos del proyecto B
-- LIBRARIES: Librerías compartidas
-```
+- **Front**: aplicación web, móvil y librerías.
+- **Back**: proyectos principales, notificaciones, webhooks, perfiles, integraciones y plataforma.
+- Agrega, elimina o reordena grupos y proyectos directamente en los arreglos de `areas`.
 
 ### Seguridad
 

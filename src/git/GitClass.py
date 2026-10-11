@@ -12,7 +12,6 @@ from src.git.managers.GitPullManager import GitPullManager
 from src.git.managers.GitPushManager import GitPushManager
 from src.git.managers.GitRebaseManager import GitRebaseManager
 from src.git.managers.GitResetManager import GitResetManager
-from src.git.managers.GitWorkflowManager import GitWorkflowManager
 from src.git.managers.GitAbortManager import GitAbortManager
 from src.types.configTypes import ExtendedConfigType, GitCommandResult, MenuOptionType
 
@@ -41,6 +40,7 @@ class GitClass(GlobalClass):
 
         self.base_branch: Optional[str] = config.get("base_branch")
         self.feature_branch: Optional[str] = config.get("feature_branch")
+        self.branch_type_label: str = config.get("branch_type_label", "destino")
 
         # Inicializar gestores especializados
         self.branch_manager = GitBranchManager(self)
@@ -49,7 +49,6 @@ class GitClass(GlobalClass):
         self.push_manager = GitPushManager(self)
         self.rebase_manager = GitRebaseManager(self)
         self.reset_manager = GitResetManager(self)
-        self.workflow_manager = GitWorkflowManager(self)
         self.abort_manager = GitAbortManager(self)
 
         # Validaciones de seguridad
@@ -168,7 +167,7 @@ class GitClass(GlobalClass):
             },
             {
                 "function": self.create_branch_feature,
-                "description": f"🌱 Crear la rama feature: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}",
+                "description": f"🌱 Crear rama {self.branch_type_label}: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}",
             },
             {
                 "function": self.reset_to_base_with_backup,
@@ -185,10 +184,6 @@ class GitClass(GlobalClass):
             {
                 "function": self.abort_operations_menu,
                 "description": "🟥 Cancelar operaciones en progreso (merge/rebase/cherry-pick)",
-            },
-            {
-                "function": self.feature_branch_workflow,
-                "description": "🌟 Flujo completo de feature branch (GitFlow CONACYT), ESPECIFICO",
             },
             {
                 "function": self.restore_local_changes,
@@ -260,10 +255,6 @@ class GitClass(GlobalClass):
     def reset_to_base_with_backup(self) -> None:
         """Hace reset completo a la rama base con backup opcional"""
         self.reset_manager.reset_to_base_with_backup()
-
-    def feature_branch_workflow(self):
-        """Flujo completo de feature branch según GitFlow CONACYT"""
-        self.workflow_manager.feature_branch_workflow()
 
     def view_today_logs(self) -> None:
         """Muestra los logs del día actual"""

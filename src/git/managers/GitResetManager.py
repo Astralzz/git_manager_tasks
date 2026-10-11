@@ -1,6 +1,5 @@
 import datetime
 from colorama import Fore
-from src.consts.env import GIT_CONFIG_ID
 
 
 class GitResetManager:
@@ -13,10 +12,12 @@ class GitResetManager:
         self.git_logger = git_instance.git_logger
         self.base_branch = git_instance.base_branch
         self.feature_branch = git_instance.feature_branch
+        self.branch_type_label = git_instance.branch_type_label
 
     def reset_to_base_with_backup(self) -> None:
         """Hace reset completo a la rama base con backup opcional"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         try:
             current = self.git.run_git_command("git branch --show-current")
@@ -99,7 +100,7 @@ class GitResetManager:
         return backup_branch
 
     def _reset_to_base(self) -> None:
-        """Resetea la rama feature a la rama base de forma forzada"""
+        """Resetea la rama seleccionada a la rama base de forma forzada"""
         base_check = self.git.run_git_command(
             f"git rev-parse --verify {self.base_branch}", allow_failure=True
         )
@@ -131,7 +132,7 @@ class GitResetManager:
             checkout_result = self.git.run_git_command(f"git checkout -f {self.feature_branch}", allow_failure=True)
             
             if checkout_result["returncode"] != 0:
-                self.colors.warning("Recreando rama feature desde cero...")
+                self.colors.warning(f"Recreando rama {self.branch_type_label} desde cero...")
                 self.git.run_git_command(f"git branch -D {self.feature_branch}", allow_failure=True)
                 self.git.run_git_command(f"git checkout -b {self.feature_branch}")
             else:

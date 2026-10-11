@@ -35,7 +35,8 @@ class GitAbortManager:
 
     def abort_merge(self) -> None:
         """Cancela un merge en progreso"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         abort_result = self.git.run_git_command("git merge --abort", allow_failure=True)
 
@@ -52,7 +53,8 @@ class GitAbortManager:
 
     def abort_rebase(self) -> None:
         """Cancela un rebase en progreso"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         abort_result = self.git.run_git_command("git rebase --abort", allow_failure=True)
 
@@ -69,7 +71,8 @@ class GitAbortManager:
 
     def abort_cherry_pick(self) -> None:
         """Cancela un cherry-pick en progreso"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         abort_result = self.git.run_git_command("git cherry-pick --abort", allow_failure=True)
 

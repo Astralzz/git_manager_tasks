@@ -17,7 +17,8 @@ class GitPullManager:
 
     def pull_current_branch(self) -> None:
         """Hace pull de la rama actual"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         try:
             branch_result = self.git.run_git_command("git branch --show-current")
@@ -65,7 +66,8 @@ class GitPullManager:
 
     def pull_base_branch(self) -> None:
         """Hace pull directo de la rama base sin importar conflictos"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         try:
             self.colors.info(

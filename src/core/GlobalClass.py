@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from src.consts.env import PASS_SENSITIVE
 from src.utils.ConsoleColors import ConsoleColors
+from src.utils.ExceptionsClass import RestartProgramException
 from src.types.configTypes import MenuOptionType, ExtendedConfigType, LoggerProtocol
 
 
@@ -29,68 +30,60 @@ class GlobalClass:
         """
         self.colors.info("--------------------------------")
         self.colors.info(
-            f"👉 Configuración seleccionada: {config.get('name')}"
+            f"👉 Flujo de rama: {config.get('name')}"
         )
-        self.colors.info(f"👉 Número: {config.get('number')}")
         self.colors.info(f"👉 Repo: {config.get('repo_path')}")
         self.colors.info(f"👉 Rama base: {config.get('base_branch')}")
-        self.colors.info(f"👉 Rama feature: {config.get('feature_branch')}\n")
+        self.colors.info(
+            f"👉 Rama {config.get('branch_type_label', 'destino')}: "
+            f"{config.get('feature_branch')}"
+        )
+        if config.get("branch_environment"):
+            self.colors.info(f"👉 Entorno: {config.get('branch_environment')}")
         self.colors.info(f"👉 Proyecto: {config.get('project')}")
-        self.colors.info(f"👉 Sección: {config.get('section')}")
-        self.colors.info(f"👉 Tarea: {config.get('task')}")
+        self.colors.info(f"👉 Área / grupo: {config.get('section')}")
         self.colors.info("--------------------------------")
         self.colors.info("\n")
 
-    # Función para confirmar la acción o salir del programa
+    # Confirma o cancela una acción.
     def confirm_action(
         self,
-        message: str = "¿Estás seguro de querer continuar? ",
+        message: str = "¿Estás seguro de querer continuar?",
     ) -> bool:
-        """
-        Pide configuración para continuar o salir del programa
-        @param {str} message: El mensaje a mostrar
-        @return {bool} True si se confirma la acción, False si se cancela
-        """
-        confirm_input = input(f"📝 {message}, Presiona 's/S' para continuar o cualquier otra tecla para salir: ").strip()
-        
-        # Registra la confirmación del usuario
-        if hasattr(self, 'logger') and self.logger is not None:
+        confirm_input = input(
+            f"📝 {message}, presiona 's/S' para continuar o cualquier otra tecla para cancelar: "
+        ).strip()
+
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_user_input("confirmation", confirm_input)
-        
+
         if confirm_input.lower() != "s":
-            self.colors.error("No se ha confirmado la acción.")
-            if hasattr(self, 'logger') and self.logger is not None:
+            self.colors.error("Acción cancelada.")
+            if hasattr(self, "logger") and self.logger is not None:
                 self.logger.log_warning("Acción no confirmada", "confirm_action")
             return False
-        else:
-            self.colors.success("Se ha confirmado la acción.")
-            if hasattr(self, 'logger') and self.logger is not None:
-                self.logger.log_success("Acción confirmada", "confirm_action")
-            return True
 
-    # Función para pedir la contraseña para acciones sensibles
-    def ask_pass(self, message: str = "Escribe la contraseña: ") -> None:
-        """
-        Pide el pass para acciones sensibles
-        """
+        self.colors.success("Acción confirmada.")
+        if hasattr(self, "logger") and self.logger is not None:
+            self.logger.log_success("Acción confirmada", "confirm_action")
+        return True
+
+    def ask_pass(self, message: str = "Escribe la contraseña: ") -> bool:
         pass_input = input(f"📝 {message}").strip()
-        
-        # Registra que se pidió contraseña (sin mostrar la contraseña)
-        if hasattr(self, 'logger') and self.logger is not None:
+
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.log_user_input("password", "***HIDDEN***")
-        
-        # Verifica si la contraseña es correcta
+
         if pass_input != PASS_SENSITIVE:
             self.colors.error("La contraseña es incorrecta.")
-            if hasattr(self, 'logger') and self.logger is not None:
+            if hasattr(self, "logger") and self.logger is not None:
                 self.logger.log_error("Contraseña incorrecta", "ask_pass")
-                self.logger.log_program_end()
-            sys.exit(1)
-        else:
-            if hasattr(self, 'logger') and self.logger is not None:
-                self.logger.log_success("Contraseña verificada correctamente", "ask_pass")
+            return False
 
-    # Función para validar los campos requeridos
+        if hasattr(self, "logger") and self.logger is not None:
+            self.logger.log_success("Contraseña verificada correctamente", "ask_pass")
+        return True
+
     def validate_required_fields(self, fields: list[str], path: str) -> None:
         """
         Valida los campos requeridos
@@ -113,60 +106,71 @@ class GlobalClass:
 
     # Función abstracta para mostrar el menu de opciones
     def show_menu(self, options: List["MenuOptionType"], is_submenu: bool = False) -> None:
-        """
-        Muestra el menu de opciones
-        @param {List[MenuOptionType]} options: Las opciones del menu [{ function: callable, description: str }]
-        @param {bool} is_submenu: Si es True, muestra 'Volver' en lugar de 'Salir'
-        """
-        # Validar que las opciones tengan la estructura correcta
         for option in options:
-            if 'function' not in option or 'description' not in option:
-                self.colors.error("Formato de opciones inválido. Cada opción debe tener 'function' y 'description'.")
-                return
+            if "function" not in option or "description" not in option:
+                raise ValueError("Cada opción requiere 'function' y 'description'.")
 
-        # Bucle para mostrar el menu de opciones
         while True:
-            # Mostrar el menu de opciones
             self.colors.info("--------------------------------")
-            self.colors.info("🔄 MENU DE OPCIONES PARA GIT:" if not is_submenu else "🔄 SUBMENÚ DE OPCIONES:")
+            title = "SUBMENÚ DE OPCIONES" if is_submenu else "MENÚ DE OPCIONES PARA GIT"
+            self.colors.info(title)
             for index, option in enumerate(options, start=1):
                 self.colors.info(f"[{index}] {option.get('description')}")
-            exit_text = "🔙 Volver" if is_submenu else "❌ Salir"
+
+            exit_text = "Volver" if is_submenu else "Salir"
             self.colors.info(f"[{len(options) + 1}] {exit_text}")
-            self.colors.info("--------------------------------\n")
+            self.colors.info("--------------------------------")
+            self.colors.info("")
 
-            # Pedir la opción seleccionada
-            selected = input(
-                "👉 Escribe el número de la opción que quieres usar: "
-            ).strip()
-
-            # Verificar si el usuario quiere salir o volver
+            selected = input("Escribe el número de la opción que quieres usar: ").strip()
             if selected == str(len(options) + 1):
                 if is_submenu:
-                    self.colors.info("🔙 Volviendo al menú anterior...")
+                    self.colors.info("Volviendo al menú anterior...")
                     return
-                else:
-                    self.colors.info("🔄 Saliendo del programa...")
-                    # Registra el fin del programa
-                    if hasattr(self, 'logger') and self.logger is not None:
-                        self.logger.log_program_end()
-                    sys.exit(0)
 
-            # Verificar si la opción es válida y ejecutar la función correspondiente
+                self.colors.info("Saliendo del programa...")
+                if hasattr(self, "logger") and self.logger is not None:
+                    self.logger.log_program_end()
+                sys.exit(0)
+
             try:
                 selected_index = int(selected) - 1
-                if 0 <= selected_index < len(options):
-                    # Registra la selección del menú
-                    if hasattr(self, 'logger') and self.logger is not None:
-                        option_description = options[selected_index]['description']
-                        self.logger.log_menu_selection(selected_index + 1, option_description)
-                    
-                    options[selected_index]['function']()
-                else:
-                    self.colors.error("Opción no válida.")
-                    if hasattr(self, 'logger') and self.logger is not None:
-                        self.logger.log_warning(f"Opción no válida seleccionada: {selected}", "show_menu")
             except ValueError:
-                self.colors.error("Por favor, ingresa un número válido.")
-                if hasattr(self, 'logger') and self.logger is not None:
+                self.colors.error("Introduce un número válido.")
+                if hasattr(self, "logger") and self.logger is not None:
                     self.logger.log_error(f"Entrada no válida en menú: {selected}", "show_menu")
+                continue
+
+            if not 0 <= selected_index < len(options):
+                self.colors.error("Opción no válida.")
+                if hasattr(self, "logger") and self.logger is not None:
+                    self.logger.log_warning(
+                        f"Opción no válida seleccionada: {selected}", "show_menu"
+                    )
+                continue
+
+            option = options[selected_index]
+            try:
+                if hasattr(self, "logger") and self.logger is not None:
+                    self.logger.log_menu_selection(
+                        selected_index + 1, option["description"]
+                    )
+                option["function"]()
+            except (KeyboardInterrupt, RestartProgramException):
+                raise
+            except SystemExit as error:
+                self.colors.error(
+                    f"La operación terminó inesperadamente (código {error.code})."
+                )
+                self.colors.info("El programa sigue abierto; regresando al menú.")
+                if hasattr(self, "logger") and self.logger is not None:
+                    self.logger.log_error(
+                        f"SystemExit({error.code}) durante una operación", "show_menu"
+                    )
+            except Exception as error:
+                self.colors.error(
+                    f"Error durante la operación ({type(error).__name__}): {error}"
+                )
+                self.colors.info("El programa sigue abierto; regresando al menú.")
+                if hasattr(self, "logger") and self.logger is not None:
+                    self.logger.log_error(str(error), "show_menu")

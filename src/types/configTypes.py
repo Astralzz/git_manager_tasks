@@ -1,6 +1,6 @@
 # Tipos
 
-from typing import TypedDict, Optional, Callable, Protocol, Literal, List, Dict
+from typing import TypedDict, Optional, Callable, Protocol, Literal, List, Dict, Any
 
 
 # Protocolo para el logger
@@ -24,34 +24,37 @@ class LoggerProtocol(Protocol):
 
 
 # Tipo para las configuraciones base
-class ConfigType(TypedDict):
+class ConfigType(TypedDict, total=False):
     number: int
     id: str
     name: str
-    email: str
-    username: str
-    token: str
-    branch: str
+    task: str
+    project: str
+    section: str
+    repo_path: str
+    base_branch: str
+    feature_branch: Optional[str]
+    branch_type: str
+    branch_type_label: str
+    branch_environment: str
 
 
 # Tipo para las configuraciones con ruta completa del repositorio
-class ConfigWithPathType(ConfigType):
-    repo_path: str
+class ConfigWithPathType(ConfigType, total=False):
+    pass
 
 
 # Tipo para configuraciones extendidas con campos opcionales
 class ExtendedConfigType(ConfigWithPathType, total=False):
-    base_branch: str
-    feature_branch: Optional[str]
-    project: Optional[str]
-    section: Optional[str]
+    pass
 
 
 # Tipo para secciones de configuración
 class ConfigSection(TypedDict, total=False):
-    description: str
-    repo_path: Optional[str]
-    configs: List[Dict]
+    id: str
+    name: str
+    root: str
+    groups: List[Dict[str, Any]]
 
 
 # Tipo para configuraciones opcionales durante la carga

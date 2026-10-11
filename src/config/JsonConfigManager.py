@@ -1,222 +1,303 @@
 import json
+import os
+import re
 import sys
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from src.consts.env import BASE_PATH
 from src.core.GlobalClass import GlobalClass
-from src.types.configTypes import ExtendedConfigType, ConfigSection
+from src.types.configTypes import ExtendedConfigType
 
 
 class JsonConfigManager(GlobalClass):
-    """Clase para manejar la configuración JSON con secciones"""
+    """Carga repositorios y selecciona flujos o ramas de trabajo."""
 
     def __init__(self, json_file: str):
-        """
-        Inicializa el gestor de configuración JSON
-        
-        Args:
-            json_file: Ruta al archivo de configuración
-        """
         super().__init__()
         self.json_file = json_file
-        self.sections_data: Dict[str, ConfigSection] = {}
-        self.current_section: str = ""
+        self.data: Dict[str, Any] = {}
 
-    def load_sections(self) -> Dict[str, ConfigSection]:
-        """
-        Carga las secciones del archivo de configuración
-        
-        Returns:
-            Diccionario con las secciones disponibles
-        """
-        self.colors.info(f"📁 Archivo de configuración: {self.json_file}")
-        
+    def load_config(self) -> Dict[str, Any]:
+        self.colors.info(f"Archivo de configuración: {self.json_file}")
         self.validate_required_fields([], self.json_file)
-        
-        with open(self.json_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            self.sections_data = data.get("sections", {})
-            
-        if not self.sections_data:
-            self.colors.error("No se encontraron secciones en el archivo de configuración")
+
+        try:
+            with open(self.json_file, "r", encoding="utf-8") as config_file:
+                self.data = json.load(config_file)
+        except (json.JSONDecodeError, OSError) as error:
+            self.colors.error(f"No se pudo leer la configuración: {error}")
             sys.exit(1)
-            
-        return self.sections_data
 
-    def select_section(self) -> str:
-        """
-        Permite seleccionar una sección
-        
-        Returns:
-            La clave de la sección seleccionada
-        """
-        self.colors.info("\n" + "=" * 60)
-        self.colors.info("📦 SECCIONES DISPONIBLES")
-        self.colors.info("=" * 60)
-        
-        sections_list = list(self.sections_data.keys())
-        
-        for idx, (section_key, section_data) in enumerate(self.sections_data.items(), 1):
-            description = section_data.get("description", "Sin descripción")
-            config_count = len(section_data.get("configs", []))
-            self.colors.info(f"{idx}. {description}")
-            self.colors.info(f"   └─ {config_count} configuración(es) disponible(s)")
-            self.colors.info("")
-        
-        self.colors.info("=" * 60)
-        
-        while True:
-            try:
-                selected = input("👉 Selecciona el número de la sección: ").strip()
-                section_idx = int(selected) - 1
-                
-                if 0 <= section_idx < len(sections_list):
-                    self.current_section = sections_list[section_idx]
-                    section_info = self.sections_data[self.current_section]
-                    self.colors.success(f"✅ Sección seleccionada: {section_info.get('description')}")
-                    return self.current_section
-                else:
-                    self.colors.error("Número inválido. Intenta de nuevo.")
-            except ValueError:
-                self.colors.error("Debes introducir un número válido.")
-            except KeyboardInterrupt:
-                self.colors.info("\n\nOperación cancelada.")
-                sys.exit(0)
-
-    def view_section_configs(self, section_key: str) -> None:
-        """
-        Muestra las configuraciones de una sección
-        
-        Args:
-            section_key: Clave de la sección
-        """
-        section = self.sections_data.get(section_key, {})
-        configs = section.get("configs", [])
-        
-        if not configs:
-            self.colors.warning("No hay configuraciones en esta sección.")
-            return
-        
-        self.colors.info("\n" + "=" * 60)
-        self.colors.info(f"📋 CONFIGURACIONES EN: {section.get('description')}")
-        self.colors.info("=" * 60)
-        
-        for idx, config in enumerate(configs, 1):
-            # Obtener project: primero de la config, si no existe, de la sección
-            project_display = config.get('project') or section.get('project')
-            
-            self.colors.info(
-                f"{idx}. {config.get('name')}"
+        required = ("repo_roots", "branch_types", "areas")
+        missing = [key for key in required if not self.data.get(key)]
+        if missing:
+            self.colors.error(
+                f"Faltan secciones requeridas en config.json: {', '.join(missing)}"
             )
-            self.colors.info(f"   Proyecto: {project_display}")
-            self.colors.info(f"   Base: {config.get('base_branch')}")
-            self.colors.info(f"   Feature: {config.get('feature_branch')}")
-            self.colors.info("")
-
-    def select_config_from_section(self, section_key: str) -> ExtendedConfigType:
-        """
-        Selecciona una configuración de la sección actual
-        
-        Args:
-            section_key: Clave de la sección
-            
-        Returns:
-            La configuración seleccionada con ruta completa
-        """
-        section = self.sections_data.get(section_key, {})
-        configs = section.get("configs", [])
-        
-        if not configs:
-            self.colors.error("No hay configuraciones disponibles en esta sección.")
             sys.exit(1)
-        
-        self.view_section_configs(section_key)
-        
-        self.colors.info("=" * 60)
-        
-        while True:
-            try:
-                selected = input("👉 Selecciona el número de la configuración: ").strip()
-                selected_num = int(selected)
-                
-                if 1 <= selected_num <= len(configs):
-                    selected_config = configs[selected_num - 1]
-                    return self._prepare_config(selected_config, section_key, selected_num)
-                else:
-                    self.colors.error(f"Número fuera de rango. Selecciona entre 1 y {len(configs)}")
-            except ValueError:
-                self.colors.error("Debes introducir un número válido.")
-            except KeyboardInterrupt:
-                self.colors.info("\n\nOperación cancelada.")
-                sys.exit(0)
-
-    def _prepare_config(self, config: Dict, section_key: str, config_number: int) -> ExtendedConfigType:
-        """
-        Prepara la configuración con la ruta completa y metadata adicional
-        
-        Args:
-            config: Configuración base
-            section_key: Clave de la sección
-            config_number: Número de la configuración (calculado automáticamente)
-            
-        Returns:
-            Configuración extendida con toda la información necesaria
-        """
-        import os
-        
-        section = self.sections_data[section_key]
-        
-        # Obtener repo_path: primero de la config, si no existe, de la sección
-        repo_value = config.get("repo_path") or section.get("repo_path")
-        if not repo_value:
-            self.colors.error("No se encontró 'repo_path' ni en la configuración ni en la sección.")
-            sys.exit(1)
-        
-        # Obtener project: primero de la config, si no existe, de la sección
-        project_value = config.get("project") or section.get("project")        
-        name_folder = config.get("name_folder") or section.get("name_folder")     
-        section_description = section.get("description", section_key)
-        
-        # Construir la ruta completa del repositorio
-        # Si existe name_folder: la ruta contiene varios proyectos, usar name_folder
-        # Si NO existe name_folder: la ruta ES el proyecto completo, no agregar nada más
-        if name_folder:
-            # Caso: BASE_PATH/repo_value/name_folder (varios proyectos en repo_value)
-            full_repo_path = os.path.join(BASE_PATH, repo_value, name_folder)
-        else:
-            # Caso: BASE_PATH/repo_value (repo_value ya es el proyecto completo)
-            full_repo_path = os.path.join(BASE_PATH, repo_value)
-        
-        # Normalizar todas las rutas a usar / en lugar de \
-        full_repo_path = full_repo_path.replace("\\", "/")
-        
-        # Crear configuración con tipo correcto
-        config_with_path = {
-            **config,
-            "number": config_number,
-            "repo_path": full_repo_path,
-            "project": project_value or "N/A",
-            "section": section_description,
-        }
-        
-        self.view_selected_config(config_with_path)  # type: ignore
-        
-        if not self.confirm_action("¿La configuración seleccionada es correcta?"):
-            sys.exit(1)
-        
-        return config_with_path  # type: ignore
+        return self.data
 
     def get_full_config_flow(self) -> ExtendedConfigType:
-        """
-        Flujo completo: cargar secciones -> seleccionar sección -> seleccionar config
-        
-        Returns:
-            La configuración final seleccionada
-        """
-        self.load_sections()
-        section_key = self.select_section()
-        return self.select_config_from_section(section_key)
+        """Selecciona área, proyecto y un flujo o nombre de rama."""
+        self.load_config()
+
+        area = self._select_item("ÁREAS", self.data["areas"])
+        group = self._select_item(f"GRUPOS EN {area['name']}", area.get("groups", []))
+        project = self._select_item(
+            f"PROYECTOS EN {group['name']}", group.get("projects", [])
+        )
+        branch_types = self.data["branch_types"]
+        presets = project.get("branches", [])
+        branch_choices = [("new", None, "Nueva rama (defecto, issue o trabajo puntual)")]
+        branch_choices.extend(
+            ("preset", preset, preset.get("name", preset.get("id", "Rama configurada")))
+            for preset in presets
+        )
+        choice_type, preset, _ = self._select_item(
+            f"RAMAS EN {project['name']}",
+            branch_choices,
+            label=lambda item: item[2],
+        )
+
+        if choice_type == "new":
+            branch_type, branch_definition = self._select_new_branch_type(
+                project, branch_types
+            )
+            branch_slug = self._prompt_branch_slug(branch_definition)
+            base_branch = self._select_new_branch_base(project, branch_type)
+            branch_id = branch_slug
+            branch_label = branch_slug
+        else:
+            branch_type, branch_config = self._select_preset_branch_type(
+                preset, branch_types
+            )
+            branch_definition = branch_types[branch_type]
+            branch_slug = self._resolve_preset_slug(
+                branch_type, preset, branch_types
+            )
+            try:
+                base_branch = self._resolve_base_branch(
+                    branch_config.get("base", ""), preset, branch_types
+                )
+            except ValueError as error:
+                self.colors.error(str(error))
+                sys.exit(1)
+            branch_id = preset.get("id", branch_slug)
+            branch_label = preset.get("name", branch_id)
+
+        prefix = branch_definition.get("prefix", "")
+        target_branch = f"{prefix}{branch_slug}"
+        repo_root_key = project.get("root", group.get("root", area.get("root")))
+        repo_root = self.data["repo_roots"].get(repo_root_key)
+        if not repo_root:
+            self.colors.error(f"No existe la ruta raíz '{repo_root_key}' en repo_roots.")
+            sys.exit(1)
+
+        repo_path = self._resolve_repo_path(repo_root, project.get("folder", "."))
+        if not base_branch or not target_branch:
+            self.colors.error("Falta la rama base o el nombre de la rama destino.")
+            sys.exit(1)
+
+        selected: ExtendedConfigType = {
+            "id": branch_id,
+            "name": branch_label,
+            "task": branch_id,
+            "project": project.get("name", project.get("id", "")),
+            "section": f"{area.get('name', '')} / {group.get('name', '')}".strip(" /"),
+            "repo_path": repo_path,
+            "base_branch": base_branch,
+            "feature_branch": target_branch,
+            "branch_type": branch_type,
+            "branch_type_label": branch_type.upper(),
+            "branch_environment": branch_definition.get("environment", ""),
+        }
+
+        self.view_selected_config(selected)
+        if not self.confirm_action("¿La configuración seleccionada es correcta?"):
+            sys.exit(1)
+        return selected
+
+    def _select_new_branch_type(
+        self, project: Dict[str, Any], branch_types: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]]:
+        defaults = project.get("branch_base_defaults", {})
+        preferred_order = ["feature", "hotfix", "release"]
+        type_order = [name for name in preferred_order if name in defaults]
+        type_order.extend(name for name in defaults if name not in type_order)
+        options = [
+            (branch_type, branch_types[branch_type])
+            for branch_type in type_order
+            if branch_type in branch_types
+        ]
+        branch_type, definition = self._select_item(
+            "TIPO PARA LA RAMA NUEVA",
+            options,
+            label=lambda item: (
+                f"{item[0].upper()} → {item[1].get('environment', '')} "
+                f"(base: {self._base_label(defaults[item[0]])})"
+            ),
+        )
+        return branch_type, definition
+
+    def _select_preset_branch_type(
+        self, preset: Dict[str, Any], branch_types: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]]:
+        configured = preset.get("types", {})
+        options = []
+        for branch_type, branch_config in configured.items():
+            definition = branch_types.get(branch_type)
+            if definition:
+                try:
+                    slug = self._resolve_preset_slug(
+                        branch_type, preset, branch_types
+                    )
+                except ValueError as error:
+                    self.colors.error(str(error))
+                    sys.exit(1)
+                target = f"{definition.get('prefix', '')}{slug}"
+                label = f"{branch_type.upper()} → {definition.get('environment', '')}: {target}"
+                options.append((branch_type, branch_config, label))
+
+        branch_type, branch_config, _ = self._select_item(
+            f"TIPO DE RAMA PARA {preset.get('name', preset.get('id', ''))}",
+            options,
+            label=lambda item: item[2],
+        )
+        return branch_type, branch_config
+
+    def _select_new_branch_base(self, project: Dict[str, Any], branch_type: str) -> str:
+        base = project.get("branch_base_defaults", {}).get(branch_type, "")
+        if isinstance(base, list):
+            return self._select_item(
+                f"RAMA BASE PARA {branch_type.upper()}",
+                base,
+                label=lambda item: item,
+            )
+        return base
+
+    @staticmethod
+    def _base_label(base: Any) -> str:
+        return ", ".join(base) if isinstance(base, list) else str(base)
+
+    def _prompt_branch_slug(self, branch_definition: Dict[str, Any]) -> str:
+        prefix = branch_definition.get("prefix", "")
+        while True:
+            try:
+                prompt = (
+                    f"Nombre/sufijo de la rama (sin '{prefix}' si ya tiene prefijo): "
+                    if prefix
+                    else "Nombre de la rama: "
+                )
+                slug = input(prompt).strip()
+            except KeyboardInterrupt:
+                self.colors.info("\nOperación cancelada.")
+                sys.exit(0)
+
+            if prefix and slug.startswith(prefix):
+                slug = slug[len(prefix):]
+            if self._is_valid_branch_slug(slug):
+                return slug
+            self.colors.error(
+                "Usa letras, números, guiones, puntos o '/', sin espacios ni símbolos de shell."
+            )
+
+    @staticmethod
+    def _is_valid_branch_slug(slug: str) -> bool:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", slug):
+            return False
+        if ".." in slug or "//" in slug or "@{" in slug or slug.endswith(("/", ".")):
+            return False
+        return all(
+            segment
+            and not segment.startswith(".")
+            and not segment.lower().endswith(".lock")
+            for segment in slug.split("/")
+        )
+
+    def _select_item(
+        self,
+        title: str,
+        items: List[Any],
+        label=lambda item: item.get("name", item.get("id", "")),
+    ) -> Any:
+        if not items:
+            self.colors.error(f"No hay opciones disponibles en {title.lower()}.")
+            sys.exit(1)
+
+        self.colors.info("\n" + "=" * 60)
+        self.colors.info(title)
+        self.colors.info("=" * 60)
+        for index, item in enumerate(items, start=1):
+            self.colors.info(f"{index}. {label(item)}")
+
+        while True:
+            try:
+                choice = int(input("Selecciona una opción: ").strip())
+                if 1 <= choice <= len(items):
+                    return items[choice - 1]
+                self.colors.error(f"Elige un número entre 1 y {len(items)}.")
+            except ValueError:
+                self.colors.error("Introduce un número válido.")
+            except KeyboardInterrupt:
+                self.colors.info("\nOperación cancelada.")
+                sys.exit(0)
+
+    @staticmethod
+    def _resolve_base_branch(
+        base: str, preset: Dict[str, Any], branch_types: Dict[str, Any]
+    ) -> str:
+        """Resuelve una base literal o la rama de otro tipo del mismo flujo."""
+        preset_branches = preset.get("types", {})
+        if base in branch_types and base not in preset_branches:
+            raise ValueError(f"El flujo no define la rama base '{base}'.")
+        if base in preset_branches:
+            base_definition = branch_types[base]
+            base_slug = JsonConfigManager._resolve_preset_slug(
+                base, preset, branch_types
+            )
+            return f"{base_definition.get('prefix', '')}{base_slug}"
+        return base
+
+    @staticmethod
+    def _resolve_preset_slug(
+        branch_type: str,
+        preset: Dict[str, Any],
+        branch_types: Dict[str, Any],
+        trail: List[str] | None = None,
+    ) -> str:
+        """Hereda el slug de la base del flujo y agrega el sufijo configurado."""
+        trail = trail or []
+        if branch_type in trail:
+            raise ValueError(
+                f"Las ramas del flujo '{preset.get('name', preset.get('id', ''))}' "
+                "tienen una dependencia circular."
+            )
+
+        branch_config = preset.get("types", {}).get(branch_type)
+        if not branch_config:
+            raise ValueError(f"El flujo no define el tipo de rama '{branch_type}'.")
+        if branch_config.get("slug"):
+            return branch_config["slug"]
+
+        base = branch_config.get("base", "")
+        parent_slug = preset.get("slug", "")
+        if base in preset.get("types", {}):
+            parent_slug = JsonConfigManager._resolve_preset_slug(
+                base, preset, branch_types, [*trail, branch_type]
+            )
+        return f"{parent_slug}{branch_config.get('suffix', '')}"
+
+    @staticmethod
+    def _resolve_repo_path(root: str, folder: str) -> str:
+        def has_windows_drive(path: str) -> bool:
+            return len(path) >= 2 and path[1] == ":"
+
+        if os.path.isabs(root) or has_windows_drive(root):
+            full_path = os.path.join(root, folder)
+        else:
+            full_path = os.path.join(BASE_PATH, root, folder)
+        return os.path.normpath(full_path).replace("\\", "/")
 
 
-# Alias para compatibilidad con código existente
+# Alias retained for main.py and existing imports.
 JsonClass = JsonConfigManager

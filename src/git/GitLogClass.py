@@ -241,7 +241,8 @@ class GitLogClass:
         task_info = f"Tarea: {config.get('task')}"
         repo_info = f"Repo: {config.get('repo_path')}"
         base_branch_info = f"Rama base: {config.get('base_branch')}"
-        feature_branch_info = f"Rama feature: {config.get('feature_branch')}"
+        branch_type = config.get("branch_type_label", "destino")
+        feature_branch_info = f"Rama {branch_type}: {config.get('feature_branch')}"
 
         # Escribir el log de inicio
         log_file_path = self._get_log_file_path()

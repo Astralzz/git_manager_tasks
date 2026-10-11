@@ -11,9 +11,10 @@ class GitRebaseManager:
         self.git_logger = git_instance.git_logger
         self.base_branch = git_instance.base_branch
         self.feature_branch = git_instance.feature_branch
+        self.branch_type_label = git_instance.branch_type_label
 
     def handle_rebase(self) -> None:
-        """Integra los cambios de la rama base a la rama feature"""
+        """Integra los cambios de la rama base a la rama seleccionada"""
         self.colors.info(
             f" REBASE: Integrando cambios de {Fore.BLUE}{self.base_branch}{Fore.RESET} → {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
         )
@@ -52,7 +53,7 @@ class GitRebaseManager:
         self.colors.info(f"\n PROCESO DE REBASE:")
         self.colors.info(f" Repo: {Fore.MAGENTA}{self.git.repo_path}{Fore.RESET}")
         self.colors.info(
-            f" Rama feature: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
+            f" Rama {self.branch_type_label}: {Fore.YELLOW}{self.feature_branch}{Fore.RESET}"
         )
         self.colors.info(
             f" Integrando desde: {Fore.BLUE}{self.base_branch}{Fore.RESET}\n"
@@ -115,7 +116,8 @@ class GitRebaseManager:
 
     def cancel_rebase(self) -> None:
         """Cancela un rebase en progreso"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         abort_result = self.git.run_git_command("git rebase --abort", allow_failure=True)
 
@@ -129,7 +131,8 @@ class GitRebaseManager:
 
     def update_base_branch(self) -> None:
         """Actualiza la rama base con los últimos cambios del remoto"""
-        self.git.ask_pass()
+        if not self.git.ask_pass():
+            return
 
         try:
             current_result = self.git.run_git_command("git branch --show-current")
